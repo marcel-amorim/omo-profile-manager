@@ -1,8 +1,12 @@
-import { describe, it, expect, vi, beforeEach } from 'vitest';
+import { describe, it, expect, vi, beforeEach, afterEach } from 'vitest';
+import { promises as fs } from 'fs';
+import { join } from 'path';
+import { tmpdir } from 'os';
 import { IpcChannels, Profile } from '../../shared/ipc';
 import { createDefaultOMOConfig } from '../../shared/types';
 
 const mockIpcHandlers = new Map<string, Function>();
+let userDataDir = '';
 
 vi.mock('electron', () => ({
   ipcMain: {
@@ -10,14 +14,44 @@ vi.mock('electron', () => ({
       mockIpcHandlers.set(channel, handler);
     }),
   },
+  app: {
+    getPath: vi.fn(() => userDataDir),
+  },
 }));
 
 describe('Profile Handler', () => {
   beforeEach(async () => {
     vi.resetModules();
     mockIpcHandlers.clear();
+
+    userDataDir = await fs.mkdtemp(join(tmpdir(), 'omo-profile-manager-tests-'));
+    const profilesDir = join(userDataDir, 'profiles');
+    await fs.mkdir(profilesDir, { recursive: true });
+
+    const defaultProfile: Profile = {
+      id: 'profile-1',
+      name: 'Default Profile',
+      description: 'Default configuration profile',
+      createdAt: 1000,
+      updatedAt: 1000,
+      config: createDefaultOMOConfig(),
+    };
+
+    await fs.writeFile(
+      join(profilesDir, 'profile-1.json'),
+      JSON.stringify(defaultProfile, null, 2),
+      'utf-8'
+    );
+
     const { registerProfileHandlers } = await import('../ipc/handlers/profiles');
     registerProfileHandlers();
+  });
+
+  afterEach(async () => {
+    if (userDataDir) {
+      await fs.rm(userDataDir, { recursive: true, force: true });
+      userDataDir = '';
+    }
   });
 
   describe('LIST_PROFILES', () => {
@@ -325,7 +359,7 @@ describe('Profile Handler', () => {
       expect(result.success).toBe(true);
       expect(result.data?.name).toBe('Default Profile (Copy)');
       expect(result.data?.id).not.toBe('profile-1');
-      expect(result.data?.id).toMatch(/^profile-\d+$/);
+      expect(result.data?.id).toMatch(/^[0-9a-f-]{36}$/i);
       expect(result.data?.createdAt).toBeGreaterThan(0);
       expect(result.data?.updatedAt).toBeGreaterThan(0);
     });

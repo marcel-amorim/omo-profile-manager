@@ -3,18 +3,84 @@ import { IpcChannels, Config } from '../../shared/ipc';
 
 const mockIpcHandlers = new Map<string, Function>();
 
+const mockedConfig = vi.hoisted(() => {
+  const state: { config: Config } = {
+    config: {
+      agents: {},
+      categories: {},
+    },
+  };
+
+  return {
+    state,
+    readOMOConfig: vi.fn(async () => state.config),
+    writeOMOConfig: vi.fn(async (config: Config) => {
+      state.config = config;
+    }),
+    configExists: vi.fn(async () => true),
+  };
+});
+
+const mockedThemeStore = vi.hoisted(() => {
+  const data: Record<string, unknown> = { theme: 'light' };
+
+  class MockStore<T extends Record<string, unknown>> {
+    get<K extends keyof T>(key: K): T[K] {
+      return data[String(key)] as T[K];
+    }
+
+    set<K extends keyof T>(key: K, value: T[K]): void {
+      data[String(key)] = value;
+    }
+  }
+
+  return {
+    data,
+    MockStore,
+  };
+});
+
 vi.mock('electron', () => ({
   ipcMain: {
     handle: vi.fn((channel: string, handler: Function) => {
       mockIpcHandlers.set(channel, handler);
     }),
   },
+  nativeTheme: {
+    shouldUseDarkColors: false,
+  },
+}));
+
+vi.mock('../config/reader', () => ({
+  readOMOConfig: mockedConfig.readOMOConfig,
+  configExists: mockedConfig.configExists,
+}));
+
+vi.mock('../config/writer', () => ({
+  writeOMOConfig: mockedConfig.writeOMOConfig,
+}));
+
+vi.mock('../config/paths', () => ({
+  OMO_CONFIG_PATH: '/mock/config/path/config.json',
+}));
+
+vi.mock('electron-store', () => ({
+  default: mockedThemeStore.MockStore,
 }));
 
 describe('Config Handler', () => {
   beforeEach(async () => {
     vi.resetModules();
     mockIpcHandlers.clear();
+    mockedConfig.state.config = {
+      agents: {},
+      categories: {},
+    };
+    mockedConfig.readOMOConfig.mockClear();
+    mockedConfig.writeOMOConfig.mockClear();
+    mockedConfig.configExists.mockClear();
+    mockedThemeStore.data.theme = 'light';
+
     const { registerConfigHandlers } = await import('../ipc/handlers/config');
     registerConfigHandlers();
   });
@@ -94,7 +160,10 @@ describe('Config Handler', () => {
       const writeHandler = mockIpcHandlers.get(IpcChannels.WRITE_CONFIG);
       const readHandler = mockIpcHandlers.get(IpcChannels.READ_CONFIG);
 
-      await writeHandler!(null, { agents: { test: { model: 'test' } } });
+      await writeHandler!(null, {
+        agents: { test: { model: 'test' } },
+        categories: {},
+      });
       const result = await readHandler!() as any;
 
       expect((result.data?.agents as any)?.test?.model).toBe('test');

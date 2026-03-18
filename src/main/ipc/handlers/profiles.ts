@@ -9,6 +9,7 @@ import {
   getActiveProfileId,
   setActiveProfileId 
 } from '../../profiles/manager';
+import { validateProfileSafe } from '../../../shared/schemas';
 import { ZodError } from 'zod';
 
 function createSuccessResult<T>(data: T): IpcResult<T> {
@@ -68,9 +69,14 @@ export function registerProfileHandlers(): void {
 
   ipcMain.handle(
     IpcChannels.SAVE_PROFILE,
-    async (_event, profile: Profile): Promise<IpcResult<void>> => {
+    async (_event, profile: unknown): Promise<IpcResult<void>> => {
       try {
-        await saveProfile(profile);
+        const validation = validateProfileSafe(profile);
+        if (!validation.success) {
+          return createErrorResult('INVALID_PROFILE', 'Profile must be a valid object');
+        }
+
+        await saveProfile(validation.data);
         return createSuccessResult(undefined);
       } catch (error) {
         const formatted = formatError(error);
