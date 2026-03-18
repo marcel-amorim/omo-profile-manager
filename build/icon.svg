@@ -1,0 +1,29 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 512 512">
+  <defs>
+    <linearGradient id="grad" x1="0%" y1="0%" x2="100%" y2="100%">
+      <stop offset="0%" style="stop-color:#3B82F6;stop-opacity:1" />
+      <stop offset="100%" style="stop-color:#8B5CF6;stop-opacity:1" />
+    </linearGradient>
+    <filter id="shadow" x="-50%" y="-50%" width="200%" height="200%">
+      <feDropShadow dx="0" dy="4" stdDeviation="8" flood-color="#000" flood-opacity="0.3"/>
+    </filter>
+  </defs>
+  
+  <!-- Rounded square background -->
+  <rect x="32" y="32" width="448" height="448" rx="80" ry="80" fill="url(#grad)" filter="url(#shadow)"/>
+  
+  <!-- Profile card shape -->
+  <rect x="96" y="120" width="320" height="272" rx="24" ry="24" fill="white" fill-opacity="0.95"/>
+  
+  <!-- Profile avatar circle -->
+  <circle cx="256" cy="192" r="48" fill="#3B82F6"/>
+  
+  <!-- User icon in avatar -->
+  <circle cx="256" cy="180" r="18" fill="white"/>
+  <path d="M 220 224 Q 256 200 292 224 L 292 232 Q 292 240 284 240 L 228 240 Q 220 240 220 232 Z" fill="white"/>
+  
+  <!-- Profile lines -->
+  <rect x="144" y="272" width="224" height="16" rx="8" fill="#6B7280"/>
+  <rect x="144" y="304" width="176" height="16" rx="8" fill="#9CA3AF"/>
+  <rect x="144" y="336" width="128" height="16" rx="8" fill="#9CA3AF"/>
+</svg>

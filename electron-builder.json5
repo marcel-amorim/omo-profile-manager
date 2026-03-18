@@ -1,0 +1,116 @@
+{
+  "$schema": "https://raw.githubusercontent.com/electron-userland/electron-builder/master/packages/app-builder-lib/scheme.json",
+  "appId": "com.opencode.omo-profile-manager",
+  "productName": "OMO Profile Manager",
+  "copyright": "Copyright © 2025 OMO Code",
+  "directories": {
+    "output": "dist",
+    "buildResources": "build"
+  },
+  "files": [
+    "dist",
+    "dist-electron"
+  ],
+  "extraMetadata": {
+    "name": "OMO Profile Manager",
+    "version": "0.0.1",
+    "description": "Manage Claude Code and OpenCode configuration profiles",
+    "author": {
+      "name": "OMO Code",
+      "email": "omo@opencode.ai"
+    }
+  },
+  "mac": {
+    "target": [
+      "dmg",
+      "zip"
+    ],
+    "icon": "build/icon.icns",
+    "category": "public.app-category.productivity",
+    "hardenedRuntime": true,
+    "gatekeeperAssess": false,
+    "entitlements": "build/entitlements.mac.plist",
+    "entitlementsInherit": "build/entitlements.mac.plist"
+  },
+  "mas": {
+    "entitlements": "build/entitlements.mas.plist",
+    "entitlementsInherit": "build/entitlements.mas.inherit.plist",
+    "provisioningProfile": "build/embedded.provisionprofile"
+  },
+  "win": {
+    "target": [
+      {
+        "target": "nsis",
+        "arch": ["x64", "ia32"]
+      },
+      {
+        "target": "portable",
+        "arch": ["x64"]
+      }
+    ],
+    "icon": "build/icon.ico",
+    "publisherName": "OMO Code"
+  },
+  "nsis": {
+    "oneClick": false,
+    "perMachine": false,
+    "allowToChangeInstallationDirectory": true,
+    "deleteAppDataOnUninstall": false,
+    "createDesktopShortcut": true,
+    "createStartMenuShortcut": true,
+    "shortcutName": "OMO Profile Manager",
+    "include": "build/installer.nsh",
+    "license": "LICENSE"
+  },
+  "portable": {
+    "splashImage": "build/splash.bmp"
+  },
+  "linux": {
+    "target": [
+      {
+        "target": "AppImage",
+        "arch": ["x64"]
+      },
+      {
+        "target": "deb",
+        "arch": ["x64"]
+      }
+    ],
+    "icon": "build",
+    "category": "Utility",
+    "maintainer": "OMO Code <omo@opencode.ai>",
+    "vendor": "OMO Code",
+    "synopsis": "Manage Claude Code and OpenCode configuration profiles",
+    "description": "A desktop application for managing configuration profiles across Claude Code and OpenCode platforms",
+    "desktop": {
+      "Name": "OMO Profile Manager",
+      "Comment": "Manage Claude Code and OpenCode configuration profiles",
+      "Categories": "Utility;Development;",
+      "Icon": "omo-profile-manager"
+    }
+  },
+  "dmg": {
+    "contents": [
+      {
+        "x": 130,
+        "y": 220
+      },
+      {
+        "x": 410,
+        "y": 220,
+        "type": "link",
+        "path": "/Applications"
+      }
+    ],
+    "window": {
+      "width": 540,
+      "height": 380
+    }
+  },
+  "publish": {
+    "provider": "github",
+    "owner": "omocode",
+    "repo": "omo-profile-manager",
+    "releaseType": "release"
+  }
+}

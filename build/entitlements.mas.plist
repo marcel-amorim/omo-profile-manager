@@ -1,0 +1,37 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<!DOCTYPE plist PUBLIC "-//Apple//DTD PLIST 1.0//EN" "http://www.apple.com/DTDs/PropertyList-1.0.dtd">
+<plist version="1.0">
+<dict>
+  <!-- Mac App Store specific entitlements -->
+  
+  <!-- App sandbox (required for MAS) -->
+  <key>com.apple.security.app-sandbox</key>
+  <true/>
+  
+  <!-- Allow JIT compilation -->
+  <key>com.apple.security.cs.allow-jit</key>
+  <true/>
+  
+  <!-- Network access -->
+  <key>com.apple.security.network.client</key>
+  <true/>
+  <key>com.apple.security.network.server</key>
+  <true/>
+  
+  <!-- File access - user selected files -->
+  <key>com.apple.security.files.user-selected.read-write</key>
+  <true/>
+  
+  <!-- Home folder access for config files -->
+  <key>com.apple.security.files.home-relative-path.read-write</key>
+  <array>
+    <string>/.claude/</string>
+    <string>/.opencode/</string>
+    <string>/.config/</string>
+  </array>
+  
+  <!-- Temporary exception for unsigned executable memory (may be needed) -->
+  <key>com.apple.security.cs.allow-unsigned-executable-memory</key>
+  <true/>
+</dict>
+</plist>
