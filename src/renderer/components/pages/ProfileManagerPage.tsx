@@ -61,12 +61,14 @@ export const ProfileManagerPage = () => {
           setShowWizard(true);
         }
 
-        if (modelsResult.success) {
+        if (modelsResult.success && modelsResult.data.length > 0) {
           setAvailableModels(modelsResult.data);
         } else {
-          const msg = modelsResult.error?.message ?? 'Unknown error';
-          setModelsError(`Failed to load models: ${msg}`);
-          alert(`Failed to load models: ${msg}`);
+          const msg = modelsResult.success
+            ? `Models list is empty (opencode returned no models)`
+            : `Failed to load models: ${modelsResult.error?.message ?? 'Unknown error'}`;
+          setModelsError(msg);
+          showError(msg);
         }
       } catch (err) {
         console.error('Failed to initialize app:', err);
