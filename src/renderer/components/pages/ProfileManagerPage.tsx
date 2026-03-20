@@ -46,6 +46,7 @@ export const ProfileManagerPage = () => {
   const [showWizard, setShowWizard] = useState(false);
   const [isCheckingFirstLaunch, setIsCheckingFirstLaunch] = useState(true);
   const [availableModels, setAvailableModels] = useState<string[]>([]);
+  const [modelsError, setModelsError] = useState<string | null>(null);
   const [hasInitializedProfileSelection, setHasInitializedProfileSelection] = useState(false);
 
   useEffect(() => {
@@ -62,6 +63,10 @@ export const ProfileManagerPage = () => {
 
         if (modelsResult.success) {
           setAvailableModels(modelsResult.data);
+        } else {
+          const msg = modelsResult.error?.message ?? 'Unknown error';
+          setModelsError(`Failed to load models: ${msg}`);
+          alert(`Failed to load models: ${msg}`);
         }
       } catch (err) {
         console.error('Failed to initialize app:', err);
@@ -352,6 +357,13 @@ export const ProfileManagerPage = () => {
             <div className="p-4 bg-red-50 dark:bg-red-900/20 text-red-800 dark:text-red-200 border-b border-red-200 dark:border-red-800/30 flex items-center gap-2 transition-colors duration-200">
               <AlertCircle size={20} />
               <span>{error}</span>
+            </div>
+          )}
+
+          {modelsError && (
+            <div className="p-4 bg-amber-50 dark:bg-amber-900/20 text-amber-800 dark:text-amber-200 border-b border-amber-200 dark:border-amber-800/30 flex items-center gap-2 transition-colors duration-200">
+              <AlertCircle size={20} />
+              <span>{modelsError}</span>
             </div>
           )}
 

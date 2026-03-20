@@ -8,33 +8,51 @@ const execAsync = promisify(exec);
 let cachedModels: string[] | null = null;
 let isFetching = false;
 let fetchPromise: Promise<string[]> | null = null;
-let resolvedEnv: NodeJS.ProcessEnv | null = null;
+let resolvedBinaryPath: string | null = null;
 
-async function getShellEnv(): Promise<NodeJS.ProcessEnv> {
-  if (resolvedEnv) return resolvedEnv;
+const COMMON_BINARY_PATHS = [
+  '/usr/local/bin/opencode',
+  '/opt/homebrew/bin/opencode',
+  '/usr/bin/opencode',
+  '/bin/opencode',
+  `${process.env.HOME}/.local/bin/opencode`,
+  `${process.env.HOME}/.bun/bin/opencode`,
+  `${process.env.HOME}/.cargo/bin/opencode`,
+];
+
+async function findOpencodeBinaryPath(): Promise<string> {
+  if (resolvedBinaryPath) return resolvedBinaryPath;
 
   if (process.platform === 'win32') {
-    resolvedEnv = process.env;
-    return resolvedEnv;
+    resolvedBinaryPath = 'opencode';
+    return resolvedBinaryPath;
+  }
+
+  for (const binPath of COMMON_BINARY_PATHS) {
+    try {
+      await execAsync(`test -x "${binPath}" && echo "found"`, { timeout: 2000 });
+      resolvedBinaryPath = binPath;
+      return resolvedBinaryPath;
+    } catch {}
   }
 
   const shell = process.env.SHELL || '/bin/zsh';
   try {
-    const { stdout } = await execAsync(`${shell} -ilc 'echo "___PATH_START___$PATH___PATH_END___"'`, {
-      timeout: 5000,
-      env: { ...process.env },
-    });
-    const match = stdout.match(/___PATH_START___(.+?)___PATH_END___/);
-    if (match) {
-      resolvedEnv = { ...process.env, PATH: match[1] };
-      return resolvedEnv;
+    const { stdout } = await execAsync(
+      `${shell} -lc 'command -v opencode || which opencode || echo ""'`,
+      { timeout: 8000, env: { ...process.env } }
+    );
+    const path = stdout.trim();
+    if (path && path.length > 0 && !path.includes('not found') && !path.includes('no opencode')) {
+      resolvedBinaryPath = path;
+      return resolvedBinaryPath;
     }
   } catch (error) {
-    console.warn('Failed to resolve shell PATH, falling back to process.env:', error);
+    console.warn('Failed to find opencode via shell command -v/which:', error);
   }
 
-  resolvedEnv = process.env;
-  return resolvedEnv;
+  resolvedBinaryPath = 'opencode';
+  return resolvedBinaryPath;
 }
 
 async function fetchModels(): Promise<string[]> {
@@ -49,17 +67,24 @@ async function fetchModels(): Promise<string[]> {
   isFetching = true;
   fetchPromise = (async () => {
     try {
-      const env = await getShellEnv();
-      const { stdout } = await execAsync('opencode models', { env });
+      const binaryPath = await findOpencodeBinaryPath();
+      console.log('[models] Using opencode binary:', binaryPath);
+
+      const { stdout } = await execAsync(`"${binaryPath}" models`, {
+        timeout: 15000,
+        env: { ...process.env },
+      });
+
       const models = stdout
         .split('\n')
         .map(line => line.trim())
         .filter(line => line.length > 0 && !line.startsWith(' ') && !line.includes('[Agent Usage Reminder]'));
-      
+
+      console.log('[models] Found models:', models.length, models.slice(0, 3));
       cachedModels = models;
       return models;
     } catch (error) {
-      console.error('Failed to fetch opencode models:', error);
+      console.error('[models] Failed to fetch opencode models:', error);
       return [];
     } finally {
       isFetching = false;
