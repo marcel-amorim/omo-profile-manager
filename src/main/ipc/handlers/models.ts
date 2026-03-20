@@ -15,6 +15,7 @@ let cachedResult: ModelsResult | null = null;
 let isFetching = false;
 let fetchPromise: Promise<ModelsResult> | null = null;
 let resolvedBinaryPath: string | null = null;
+let resolvedEnv: NodeJS.ProcessEnv | null = null;
 
 const COMMON_BINARY_PATHS = [
   '/usr/local/bin/opencode',
@@ -25,6 +26,37 @@ const COMMON_BINARY_PATHS = [
   `${process.env.HOME}/.bun/bin/opencode`,
   `${process.env.HOME}/.cargo/bin/opencode`,
 ];
+
+async function getShellEnv(): Promise<NodeJS.ProcessEnv> {
+  if (resolvedEnv) return resolvedEnv;
+
+  if (process.platform === 'win32') {
+    resolvedEnv = process.env;
+    return resolvedEnv;
+  }
+
+  const shell = process.env.SHELL || '/bin/zsh';
+  try {
+    const { stdout } = await execAsync(
+      `${shell} -ilc 'echo "___ENV_START___${JSON.stringify(process.env).replace(/'/g, "'\"'\"'")}___ENV_END___"'`,
+      { timeout: 10000 }
+    );
+    const match = stdout.match(/___ENV_START___(.+?)___ENV_END___/);
+    if (match) {
+      try {
+        resolvedEnv = JSON.parse(match[1]);
+      } catch {
+        resolvedEnv = process.env as NodeJS.ProcessEnv;
+      }
+      return resolvedEnv!;
+    }
+  } catch (error) {
+    console.warn('[models] getShellEnv failed:', error);
+  }
+
+  resolvedEnv = process.env!;
+  return resolvedEnv!;
+}
 
 async function findOpencodeBinaryPath(): Promise<string> {
   if (resolvedBinaryPath) return resolvedBinaryPath;
@@ -54,7 +86,7 @@ async function findOpencodeBinaryPath(): Promise<string> {
       return resolvedBinaryPath;
     }
   } catch (error) {
-    console.warn('Failed to find opencode via shell command -v/which:', error);
+    console.warn('Failed to find opencode via shell:', error);
   }
 
   resolvedBinaryPath = 'opencode';
@@ -69,7 +101,8 @@ async function fetchModels(): Promise<ModelsResult> {
   isFetching = true;
   fetchPromise = (async () => {
     const binaryPath = await findOpencodeBinaryPath();
-    console.log('[models] Using opencode binary:', binaryPath);
+    const env = await getShellEnv();
+    console.log('[models] binary:', binaryPath);
 
     let rawStdout = '';
     let rawStderr = '';
@@ -77,7 +110,7 @@ async function fetchModels(): Promise<ModelsResult> {
     try {
       const result = await execAsync(`"${binaryPath}" models`, {
         timeout: 15000,
-        env: { ...process.env },
+        env: { ...env },
       });
       rawStdout = result.stdout;
       rawStderr = result.stderr;
