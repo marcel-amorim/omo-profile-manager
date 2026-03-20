@@ -92,9 +92,16 @@ export type OMOAgentConfig = z.infer<typeof OMOAgentConfigSchema>;
 export const OMOCategoryConfigSchema = OMOAgentConfigSchema;
 export type OMOCategoryConfig = z.infer<typeof OMOCategoryConfigSchema>;
 
+export const SisyphusAgentSettingsSchema = z.object({
+  default_builder_enabled: z.boolean(),
+  replace_plan: z.boolean(),
+});
+export type SisyphusAgentSettings = z.infer<typeof SisyphusAgentSettingsSchema>;
+
 export const OMOGlobalSettingsSchema = z.object({
   $schema: z.string().optional(),
   new_task_system_enabled: z.boolean().optional(),
+  sisyphus_agent: SisyphusAgentSettingsSchema.optional(),
   default_run_agent: z.string().optional(),
   disabled_mcps: z.array(z.string().min(1)).optional(),
   disabled_agents: z.array(z.string()).optional(),

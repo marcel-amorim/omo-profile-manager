@@ -1,6 +1,6 @@
 import React, { useState } from 'react';
 import { AlertCircle, CheckCircle, X } from 'lucide-react';
-import { Profile } from '../../shared/types';
+import { Profile } from '../../../shared/types';
 
 interface ApplyModalProps {
   profile: Profile;

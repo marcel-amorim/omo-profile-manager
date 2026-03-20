@@ -1,6 +1,8 @@
 import React, { useState, useRef } from 'react';
-import { Profile, OMOConfig } from '../../shared/types';
+import { Profile, OMOConfig } from '../../../shared/types';
+import { DEFAULT_SISYPHUS_AGENT_SETTINGS, OMO_SCHEMA_URL } from '../../../shared/constants';
 import { Settings, Upload, FilePlus, ChevronRight, Check, AlertCircle } from 'lucide-react';
+import { createImportedProfile, parseImportedProfileText } from '../../domain/profile-transfer';
 
 interface SetupWizardProps {
   onComplete: (profile: Profile | null) => void;
@@ -9,6 +11,8 @@ interface SetupWizardProps {
 type SetupOption = 'default' | 'import' | 'scratch' | null;
 
 const DEFAULT_CONFIG: OMOConfig = {
+  $schema: OMO_SCHEMA_URL,
+  sisyphus_agent: { ...DEFAULT_SISYPHUS_AGENT_SETTINGS },
   agents: {
     sisyphus: { model: 'anthropic/claude-opus-4-6', variant: 'high' },
     oracle: { model: 'openai/gpt-5.4', variant: 'high' },
@@ -40,34 +44,30 @@ export function SetupWizard({ onComplete }: SetupWizardProps) {
   const [error, setError] = useState<string | null>(null);
   const fileInputRef = useRef<HTMLInputElement>(null);
 
-  const handleFileChange = (e: React.ChangeEvent<HTMLInputElement>) => {
+  const handleFileChange = async (e: React.ChangeEvent<HTMLInputElement>) => {
     const file = e.target.files?.[0];
     if (!file) return;
 
-    const reader = new FileReader();
-    reader.onload = (event) => {
-      try {
-        const content = event.target?.result as string;
-        const parsed = JSON.parse(content);
-        if (parsed && typeof parsed === 'object' && parsed.config) {
-          setImportedProfile({
-            id: Date.now().toString(),
-            name: parsed.name || 'Imported Profile',
-            description: parsed.description || 'Imported from file',
-            createdAt: Date.now(),
-            updatedAt: Date.now(),
-            config: parsed.config
-          });
-          setSelectedOption('import');
-          setError(null);
-        } else {
-          setError('Invalid profile file format. Missing config object.');
-        }
-      } catch (err) {
-        setError('Failed to parse JSON file.');
+    try {
+      const content = await file.text();
+      const parsed = parseImportedProfileText(content);
+
+      if (!parsed.success) {
+        setError(parsed.message);
+        return;
       }
-    };
-    reader.readAsText(file);
+
+      setImportedProfile(
+        createImportedProfile(parsed.data, {
+          descriptionFallback: 'Imported from file',
+          idFactory: () => Date.now().toString(),
+        })
+      );
+      setSelectedOption('import');
+      setError(null);
+    } catch {
+      setError('Failed to read file.');
+    }
   };
 
   const handleNext = () => {

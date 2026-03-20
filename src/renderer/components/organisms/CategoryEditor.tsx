@@ -1,13 +1,18 @@
 import React from 'react';
 import { Settings2 } from 'lucide-react';
-import { OMOCategoryConfig } from '../../shared/types';
-import { CategoryName, DEFAULT_CATEGORIES } from '../../shared/constants';
-import { ModelSelect } from './ModelSelect';
-import { CATEGORY_MODEL_RECOMMENDATIONS } from '../../shared/model-recommendations';
+import { OMOCategoryConfig } from '../../../shared/types';
+import { CategoryName, DEFAULT_CATEGORIES } from '../../../shared/constants';
+import { ModelSelect } from '../molecules/ModelSelect';
+import { SectionHeader } from '../atoms/SectionHeader';
+import { CATEGORY_MODEL_RECOMMENDATIONS } from '../../../shared/model-recommendations';
 
 interface CategoryEditorProps {
   categories: Record<CategoryName, OMOCategoryConfig>;
-  onChange: (category: CategoryName, field: keyof OMOCategoryConfig, value: any) => void;
+  onChange: <K extends keyof OMOCategoryConfig>(
+    category: CategoryName,
+    field: K,
+    value: OMOCategoryConfig[K]
+  ) => void;
   className?: string;
   availableModels?: string[];
 }
@@ -31,19 +36,12 @@ export const CategoryEditor: React.FC<CategoryEditorProps> = ({
 }) => {
   return (
     <div className={`flex flex-col h-full bg-white dark:bg-slate-950 text-slate-900 dark:text-slate-100 ${className}`}>
-      <div className="flex items-center gap-3 mb-6">
-        <div className="p-2 bg-purple-100 dark:bg-purple-900/30 rounded-lg text-purple-600 dark:text-purple-400">
-          <Settings2 className="w-6 h-6" />
-        </div>
-        <div>
-          <h2 className="text-2xl font-bold text-slate-900 dark:text-white tracking-tight">
-            Category Configuration
-          </h2>
-          <p className="text-sm text-slate-500 dark:text-slate-400 mt-1">
-            Set default models for different task categories
-          </p>
-        </div>
-      </div>
+      <SectionHeader
+        icon={<Settings2 className="w-6 h-6" />}
+        title="Category Configuration"
+        description="Set default models for different task categories"
+        accent="purple"
+      />
 
       <div className="grid grid-cols-1 lg:grid-cols-2 gap-4">
         {DEFAULT_CATEGORIES.map(category => {
@@ -85,7 +83,7 @@ export const CategoryEditor: React.FC<CategoryEditorProps> = ({
                   <select
                     id={`variant-${category}`}
                     value={config.variant || 'medium'}
-                    onChange={(e) => onChange(category, 'variant', e.target.value)}
+                    onChange={(e) => onChange(category, 'variant', e.target.value as OMOCategoryConfig['variant'])}
                     className="w-full px-3.5 py-2.5 bg-white dark:bg-slate-950 border border-slate-300 dark:border-slate-700 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-blue-500 dark:text-slate-100 transition-shadow shadow-sm"
                   >
                     <option value="low">Low (Faster)</option>

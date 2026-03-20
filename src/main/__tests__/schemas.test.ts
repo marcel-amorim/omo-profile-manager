@@ -304,6 +304,10 @@ describe('Schemas', () => {
       const settings = {
         $schema: 'https://example.com/schema.json',
         new_task_system_enabled: true,
+        sisyphus_agent: {
+          default_builder_enabled: true,
+          replace_plan: false,
+        },
         default_run_agent: 'sisyphus',
         disabled_mcps: ['mcp1'],
         disabled_agents: ['agent1'],
@@ -361,6 +365,10 @@ describe('Schemas', () => {
     it('should accept config with global settings', () => {
       const config = {
         $schema: 'https://example.com/schema.json',
+        sisyphus_agent: {
+          default_builder_enabled: true,
+          replace_plan: false,
+        },
         hashline_edit: true,
         ...createMockOMOConfig(),
       };

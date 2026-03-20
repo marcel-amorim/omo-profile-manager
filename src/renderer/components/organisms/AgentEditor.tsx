@@ -1,9 +1,10 @@
 import React, { useState } from 'react';
 import { ChevronDown, ChevronUp, Settings, Shield, Zap, Cpu } from 'lucide-react';
-import { OMOAgentConfig, PermissionLevel } from '../../shared/types';
-import { DEFAULT_AGENTS, VARIANT_OPTIONS, VariantOption, AgentName } from '../../shared/constants';
-import { ModelSelect } from './ModelSelect';
-import { AGENT_MODEL_RECOMMENDATIONS } from '../../shared/model-recommendations';
+import { OMOAgentConfig, PermissionLevel } from '../../../shared/types';
+import { DEFAULT_AGENTS, VARIANT_OPTIONS, VariantOption, AgentName } from '../../../shared/constants';
+import { ModelSelect } from '../molecules/ModelSelect';
+import { SectionHeader } from '../atoms/SectionHeader';
+import { AGENT_MODEL_RECOMMENDATIONS } from '../../../shared/model-recommendations';
 
 interface AgentEditorProps {
   agents: Record<string, OMOAgentConfig>;
@@ -18,10 +19,10 @@ export const AgentEditor: React.FC<AgentEditorProps> = ({ agents, onChange, avai
     setExpandedAgent(expandedAgent === agentName ? null : agentName);
   };
 
-  const handleFieldChange = (
+  const handleFieldChange = <K extends keyof OMOAgentConfig>(
     agentName: string,
-    field: keyof OMOAgentConfig,
-    value: any
+    field: K,
+    value: OMOAgentConfig[K]
   ) => {
     const currentConfig = agents[agentName] || { model: '', variant: 'medium' };
     onChange(agentName, { ...currentConfig, [field]: value });
@@ -51,19 +52,12 @@ export const AgentEditor: React.FC<AgentEditorProps> = ({ agents, onChange, avai
 
   return (
     <div className="w-full max-w-4xl mx-auto space-y-6">
-      <div className="flex items-center gap-3 mb-6">
-        <div className="p-2 bg-blue-100 dark:bg-blue-900/30 rounded-lg text-blue-600 dark:text-blue-400">
-          <Cpu className="w-6 h-6" />
-        </div>
-        <div>
-          <h2 className="text-2xl font-bold text-slate-900 dark:text-white tracking-tight">
-            Agent Configuration
-          </h2>
-          <p className="text-sm text-slate-500 dark:text-slate-400 mt-1">
-            Configure models and parameters for specific agents
-          </p>
-        </div>
-      </div>
+      <SectionHeader
+        icon={<Cpu className="w-6 h-6" />}
+        title="Agent Configuration"
+        description="Configure models and parameters for specific agents"
+        accent="blue"
+      />
       
       <div className="space-y-3">
         {DEFAULT_AGENTS.map((agentName) => {
@@ -202,7 +196,12 @@ export const AgentEditor: React.FC<AgentEditorProps> = ({ agents, onChange, avai
                         <select
                           id={`${agentName}-reasoningEffort`}
                           value={config.reasoningEffort || ''}
-                          onChange={(e) => handleFieldChange(agentName, 'reasoningEffort', e.target.value || undefined)}
+                          onChange={(e) => {
+                            const nextReasoningEffort = e.target.value === ''
+                              ? undefined
+                              : (e.target.value as OMOAgentConfig['reasoningEffort']);
+                            handleFieldChange(agentName, 'reasoningEffort', nextReasoningEffort);
+                          }}
                           className="w-full px-3.5 py-2.5 border border-slate-300 dark:border-slate-700 rounded-lg shadow-sm focus:ring-2 focus:ring-blue-500 focus:border-blue-500 bg-white dark:bg-slate-950 text-slate-900 dark:text-white transition-shadow"
                         >
                           <option value="">Default</option>
