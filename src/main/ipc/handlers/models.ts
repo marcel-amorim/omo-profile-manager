@@ -5,9 +5,15 @@ import { IpcChannels, IpcResult } from '../../../shared/ipc';
 
 const execAsync = promisify(exec);
 
-let cachedModels: string[] | null = null;
+interface ModelsResult {
+  models: string[];
+  rawStdout: string;
+  rawStderr: string;
+}
+
+let cachedResult: ModelsResult | null = null;
 let isFetching = false;
-let fetchPromise: Promise<string[]> | null = null;
+let fetchPromise: Promise<ModelsResult> | null = null;
 let resolvedBinaryPath: string | null = null;
 
 const COMMON_BINARY_PATHS = [
@@ -55,55 +61,70 @@ async function findOpencodeBinaryPath(): Promise<string> {
   return resolvedBinaryPath;
 }
 
-async function fetchModels(): Promise<string[]> {
-  if (cachedModels) {
-    return cachedModels;
-  }
+async function fetchModels(): Promise<ModelsResult> {
+  if (cachedResult) return cachedResult;
 
-  if (isFetching && fetchPromise) {
-    return fetchPromise;
-  }
+  if (isFetching && fetchPromise) return fetchPromise;
 
   isFetching = true;
   fetchPromise = (async () => {
-    try {
-      const binaryPath = await findOpencodeBinaryPath();
-      console.log('[models] Using opencode binary:', binaryPath);
+    const binaryPath = await findOpencodeBinaryPath();
+    console.log('[models] Using opencode binary:', binaryPath);
 
-      const { stdout } = await execAsync(`"${binaryPath}" models`, {
+    let rawStdout = '';
+    let rawStderr = '';
+
+    try {
+      const result = await execAsync(`"${binaryPath}" models`, {
         timeout: 15000,
         env: { ...process.env },
       });
-
-      const models = stdout
-        .split('\n')
-        .map(line => line.trim())
-        .filter(line => line.length > 0 && !line.startsWith(' ') && !line.includes('[Agent Usage Reminder]'));
-
-      console.log('[models] Found models:', models.length, models.slice(0, 3));
-      cachedModels = models;
-      return models;
+      rawStdout = result.stdout;
+      rawStderr = result.stderr;
     } catch (error) {
-      console.error('[models] Failed to fetch opencode models:', error);
-      return [];
-    } finally {
-      isFetching = false;
-      fetchPromise = null;
+      const execError = error as { stdout?: string; stderr?: string; message?: string };
+      rawStdout = execError.stdout ?? '';
+      rawStderr = execError.stderr ?? '';
+      console.error('[models] exec error:', execError.message, 'stdout:', rawStdout, 'stderr:', rawStderr);
     }
+
+    const models = rawStdout
+      .split('\n')
+      .map(line => line.trim())
+      .filter(line => line.length > 0 && !line.startsWith(' ') && !line.includes('[Agent Usage Reminder]'));
+
+    console.log('[models] stdout:', JSON.stringify(rawStdout));
+    console.log('[models] stderr:', JSON.stringify(rawStderr));
+    console.log('[models] Found models:', models.length);
+
+    cachedResult = { models, rawStdout, rawStderr };
+    return cachedResult;
   })();
 
-  return fetchPromise;
+  try {
+    return await fetchPromise;
+  } finally {
+    isFetching = false;
+    fetchPromise = null;
+  }
 }
 
 export function registerModelsHandlers(): void {
-  fetchModels().catch(console.error);
-
   ipcMain.handle(
     IpcChannels.LIST_MODELS,
-    async (): Promise<IpcResult<string[]>> => {
+    async (): Promise<IpcResult<ModelsResult>> => {
       try {
-        const models = await fetchModels();
-        return { success: true, data: models };
+        const result = await fetchModels();
+        if (result.models.length === 0) {
+          return {
+            success: false,
+            error: {
+              code: 'MODELS_EMPTY',
+              message: `opencode models returned no models.\n\nRaw stdout:\n${result.rawStdout}\n\nRaw stderr:\n${result.rawStderr}\n\nBinary used: ${resolvedBinaryPath ?? 'unknown'}`,
+            },
+          };
+        }
+        return { success: true, data: result };
       } catch (error) {
         const message = error instanceof Error ? error.message : String(error);
         return { success: false, error: { code: 'FETCH_FAILED', message } };

@@ -61,8 +61,8 @@ export const ProfileManagerPage = () => {
           setShowWizard(true);
         }
 
-        if (modelsResult.success && modelsResult.data.length > 0) {
-          setAvailableModels(modelsResult.data);
+        if (modelsResult.success && (modelsResult.data as unknown as { models: string[] }).models.length > 0) {
+          setAvailableModels((modelsResult.data as unknown as { models: string[] }).models);
         } else {
           const msg = modelsResult.success
             ? `Models list is empty (opencode returned no models)`
