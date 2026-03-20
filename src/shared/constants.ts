@@ -24,6 +24,14 @@ export const DEFAULT_CATEGORIES = [
 
 export const VARIANT_OPTIONS = ['low', 'medium', 'high', 'xhigh'] as const;
 
+export const OMO_SCHEMA_URL =
+  'https://raw.githubusercontent.com/code-yeongyu/oh-my-opencode/dev/assets/oh-my-opencode.schema.json';
+
+export const DEFAULT_SISYPHUS_AGENT_SETTINGS = {
+  default_builder_enabled: true,
+  replace_plan: false,
+};
+
 export type AgentName = typeof DEFAULT_AGENTS[number];
 export type CategoryName = typeof DEFAULT_CATEGORIES[number];
 export type VariantOption = typeof VARIANT_OPTIONS[number];

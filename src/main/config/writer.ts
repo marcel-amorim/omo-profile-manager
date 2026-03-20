@@ -3,10 +3,73 @@ import { join, dirname } from 'path';
 import { format } from 'date-fns';
 import type { OMOConfig, BackupInfo } from '../../shared/types';
 import { validateOMOConfig } from '../../shared/schemas';
+import { DEFAULT_SISYPHUS_AGENT_SETTINGS, OMO_SCHEMA_URL } from '../../shared/constants';
 import { OMO_CONFIG_PATH, BACKUP_DIR } from './paths';
 
 export async function writeOMOConfig(config: OMOConfig): Promise<void> {
-  validateOMOConfig(config);
+  const {
+    agents,
+    categories,
+    $schema: _schema,
+    sisyphus_agent,
+    new_task_system_enabled,
+    default_run_agent,
+    disabled_mcps,
+    disabled_agents,
+    disabled_skills,
+    disabled_hooks,
+    disabled_commands,
+    disabled_tools,
+    hashline_edit,
+    model_fallback,
+    ...rest
+  } = config as OMOConfig & Record<string, unknown>;
+
+  const configToWrite = {
+    ...(rest as Record<string, unknown>),
+    $schema: OMO_SCHEMA_URL,
+    sisyphus_agent: {
+      default_builder_enabled:
+        sisyphus_agent?.default_builder_enabled ??
+        DEFAULT_SISYPHUS_AGENT_SETTINGS.default_builder_enabled,
+      replace_plan:
+        sisyphus_agent?.replace_plan ?? DEFAULT_SISYPHUS_AGENT_SETTINGS.replace_plan,
+    },
+    ...(new_task_system_enabled !== undefined && {
+      new_task_system_enabled,
+    }),
+    ...(default_run_agent !== undefined && {
+      default_run_agent,
+    }),
+    ...(disabled_mcps !== undefined && {
+      disabled_mcps,
+    }),
+    ...(disabled_agents !== undefined && {
+      disabled_agents,
+    }),
+    ...(disabled_skills !== undefined && {
+      disabled_skills,
+    }),
+    ...(disabled_hooks !== undefined && {
+      disabled_hooks,
+    }),
+    ...(disabled_commands !== undefined && {
+      disabled_commands,
+    }),
+    ...(disabled_tools !== undefined && {
+      disabled_tools,
+    }),
+    ...(hashline_edit !== undefined && {
+      hashline_edit,
+    }),
+    ...(model_fallback !== undefined && {
+      model_fallback,
+    }),
+    agents,
+    categories,
+  } as OMOConfig;
+
+  validateOMOConfig(configToWrite);
 
   const opencodeDir = dirname(OMO_CONFIG_PATH);
   const opencodeDirExists = await fileExists(opencodeDir);
@@ -20,7 +83,7 @@ export async function writeOMOConfig(config: OMOConfig): Promise<void> {
     await createBackup();
   }
 
-  const jsonContent = JSON.stringify(config, null, 2);
+  const jsonContent = JSON.stringify(configToWrite, null, 2);
   
   await fs.writeFile(OMO_CONFIG_PATH, jsonContent, 'utf-8');
 }

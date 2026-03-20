@@ -13,9 +13,8 @@ export function useProfiles() {
     setError(null);
     try {
       const result = await window.electron.profiles.listProfiles();
-      console.log('listProfiles result:', result);
       if (result.success) {
-        setProfiles(result.data as unknown as Profile[]);
+        setProfiles(result.data);
       } else {
         setError(result.error.message);
         showError(`Failed to load profiles: ${result.error.message}`);
@@ -37,7 +36,7 @@ export function useProfiles() {
     setLoading(true);
     setError(null);
     try {
-      const result = await window.electron.profiles.saveProfile(profile as any);
+      const result = await window.electron.profiles.saveProfile(profile);
       if (result.success) {
         await fetchProfiles();
         showSuccess('Profile created successfully');
@@ -61,7 +60,7 @@ export function useProfiles() {
     setLoading(true);
     setError(null);
     try {
-      const result = await window.electron.profiles.saveProfile(profile as any);
+      const result = await window.electron.profiles.saveProfile(profile);
       if (result.success) {
         await fetchProfiles();
         showSuccess('Profile updated successfully');
@@ -113,7 +112,7 @@ export function useProfiles() {
       if (result.success) {
         await fetchProfiles();
         showSuccess('Profile duplicated successfully');
-        return result.data as unknown as Profile;
+        return result.data;
       } else {
         setError(result.error.message);
         showError(`Failed to duplicate profile: ${result.error.message}`);

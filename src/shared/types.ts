@@ -6,7 +6,12 @@
  */
 
 import type { AgentName, CategoryName, VariantOption } from './constants';
-import { DEFAULT_AGENTS, DEFAULT_CATEGORIES } from './constants';
+import {
+  DEFAULT_AGENTS,
+  DEFAULT_CATEGORIES,
+  DEFAULT_SISYPHUS_AGENT_SETTINGS,
+  OMO_SCHEMA_URL,
+} from './constants';
 import { AGENT_MODEL_RECOMMENDATIONS, CATEGORY_MODEL_RECOMMENDATIONS } from './model-recommendations';
 
 /**
@@ -170,6 +175,8 @@ export interface OMOGlobalSettings {
   
   /** Whether new task system is enabled */
   new_task_system_enabled?: boolean;
+
+  sisyphus_agent?: SisyphusAgentSettings;
   
   /** Default agent to run */
   default_run_agent?: string;
@@ -197,6 +204,11 @@ export interface OMOGlobalSettings {
   
   /** Enable model fallback */
   model_fallback?: boolean;
+}
+
+export interface SisyphusAgentSettings {
+  default_builder_enabled: boolean;
+  replace_plan: boolean;
 }
 
 /**
@@ -321,6 +333,8 @@ export function createDefaultOMOConfig(
   }
   
   return {
+    $schema: OMO_SCHEMA_URL,
+    sisyphus_agent: { ...DEFAULT_SISYPHUS_AGENT_SETTINGS },
     agents,
     categories,
     model_fallback: true,
