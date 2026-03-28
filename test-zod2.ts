@@ -7,8 +7,8 @@ const profile = {
   createdAt: Date.now(),
   updatedAt: Date.now(),
   config: {
-    agents: {} as any,
-    categories: {} as any
+    agents: {},
+    categories: {}
   }
 };
 

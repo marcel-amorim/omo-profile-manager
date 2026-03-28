@@ -17,8 +17,19 @@ export type {
   OMOAgentConfig,
   OMOCategoryConfig,
   OMOGlobalSettings,
+  OMOSharedSettings,
   OMOConfig,
   BackupInfo,
+  SisyphusAgentSettings,
+  BackgroundTaskSettings,
+  SisyphusTaskSettings,
+  SisyphusSettings,
+  BrowserAutomationProvider,
+  BrowserAutomationEngineSettings,
+  NotificationSettings,
+  GitMasterSettings,
+  RuntimeFallbackSettings,
+  ExperimentalSettings,
 } from './types';
 
 export {
@@ -30,5 +41,13 @@ export {
   DEFAULT_AGENT_CONFIG,
   createDefaultOMOConfig,
 } from './types';
+
+export {
+  createDefaultSharedSettings,
+  extractSharedSettings,
+  stripSharedSettingsFromConfig,
+  mergeSharedSettingsIntoConfig,
+  isSharedConfigKey,
+} from './config-scope';
 
 export type { Profile as OMOProfile } from './types';

@@ -3,12 +3,16 @@ import { Config, IpcChannels, IpcResult } from '../../../shared/ipc';
 import Store from 'electron-store';
 import { configExists, readOMOConfig } from '../../config/reader';
 import { writeOMOConfig } from '../../config/writer';
-import type { OMOConfig } from '../../../shared/types';
+import type { OMOConfig, OMOSharedSettings } from '../../../shared/types';
+import { createDefaultSharedSettings, extractSharedSettings } from '../../../shared/config-scope';
 import { OMO_CONFIG_PATH } from '../../config/paths';
+import { OMOGlobalSettingsSchema } from '../../../shared/schemas';
 import { ZodError } from 'zod';
 
 interface SettingsStore {
   theme: 'light' | 'dark';
+  sharedSettings: OMOSharedSettings;
+  sharedSettingsInitialized: boolean;
 }
 
 const store = new Store<SettingsStore>({
@@ -16,6 +20,8 @@ const store = new Store<SettingsStore>({
   name: 'settings',
   defaults: {
     theme: 'light',
+    sharedSettings: createDefaultSharedSettings(),
+    sharedSettingsInitialized: false,
   },
 });
 
@@ -65,6 +71,31 @@ function getSystemTheme(): 'light' | 'dark' {
   return nativeTheme.shouldUseDarkColors ? 'dark' : 'light';
 }
 
+function isValidSharedSettingsPayload(settings: unknown): settings is OMOSharedSettings {
+  return OMOGlobalSettingsSchema.safeParse(settings).success;
+}
+
+async function getSharedSettings(): Promise<OMOSharedSettings> {
+  const hasInitializedSharedSettings = store.get('sharedSettingsInitialized');
+
+  if (!hasInitializedSharedSettings) {
+    let nextSharedSettings = createDefaultSharedSettings();
+
+    try {
+      const currentConfig = await readOMOConfig();
+      nextSharedSettings = extractSharedSettings(currentConfig);
+    } catch {
+      nextSharedSettings = createDefaultSharedSettings();
+    }
+
+    store.set('sharedSettings', nextSharedSettings);
+    store.set('sharedSettingsInitialized', true);
+    return nextSharedSettings;
+  }
+
+  return extractSharedSettings(store.get('sharedSettings'));
+}
+
 export function registerConfigHandlers(): void {
   ipcMain.handle(IpcChannels.READ_CONFIG, async (): Promise<IpcResult<Config>> => {
     try {
@@ -101,6 +132,34 @@ export function registerConfigHandlers(): void {
         }
 
         await writeOMOConfig(config as OMOConfig);
+        return createSuccessResult(undefined);
+      } catch (error) {
+        const formatted = formatError(error);
+        return createErrorResult(formatted.code, formatted.message);
+      }
+    }
+  );
+
+  ipcMain.handle(IpcChannels.READ_SHARED_SETTINGS, async (): Promise<IpcResult<OMOSharedSettings>> => {
+    try {
+      const sharedSettings = await getSharedSettings();
+      return createSuccessResult(sharedSettings);
+    } catch (error) {
+      const formatted = formatError(error);
+      return createErrorResult(formatted.code, formatted.message);
+    }
+  });
+
+  ipcMain.handle(
+    IpcChannels.WRITE_SHARED_SETTINGS,
+    async (_event, settings: unknown): Promise<IpcResult<void>> => {
+      try {
+        if (!isValidSharedSettingsPayload(settings)) {
+          return createErrorResult('INVALID_SHARED_SETTINGS', 'Shared settings must be a valid object');
+        }
+
+        store.set('sharedSettings', extractSharedSettings(settings));
+        store.set('sharedSettingsInitialized', true);
         return createSuccessResult(undefined);
       } catch (error) {
         const formatted = formatError(error);

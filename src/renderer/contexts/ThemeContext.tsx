@@ -1,15 +1,5 @@
-import { createContext, useContext, useEffect, useState, ReactNode } from 'react';
-
-type Theme = 'light' | 'dark';
-
-interface ThemeContextType {
-  theme: Theme;
-  toggleTheme: () => void;
-  setTheme: (theme: Theme) => void;
-  isLoading: boolean;
-}
-
-const ThemeContext = createContext<ThemeContextType | undefined>(undefined);
+import { useEffect, useState, ReactNode } from 'react';
+import { ThemeContext, Theme } from './theme-context';
 
 interface ThemeProviderProps {
   children: ReactNode;
@@ -66,6 +56,7 @@ export function ThemeProvider({ children }: ThemeProviderProps) {
     try {
       await window.electron.theme.setTheme(newTheme);
     } catch {
+      setThemeState(newTheme);
     }
   };
 
@@ -79,12 +70,4 @@ export function ThemeProvider({ children }: ThemeProviderProps) {
       {children}
     </ThemeContext.Provider>
   );
-}
-
-export function useTheme() {
-  const context = useContext(ThemeContext);
-  if (context === undefined) {
-    throw new Error('useTheme must be used within a ThemeProvider');
-  }
-  return context;
 }

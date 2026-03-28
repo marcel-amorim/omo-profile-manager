@@ -1,4 +1,5 @@
 import type { Profile } from '../../shared/types';
+import { stripSharedSettingsFromConfig } from '../../shared/config-scope';
 import { validateProfileSafe } from '../../shared/schemas';
 
 export type ImportableProfileData = Omit<Profile, 'id' | 'createdAt' | 'updatedAt'>;
@@ -19,7 +20,7 @@ export const createProfileExportPayload = (profile: Profile): ImportableProfileD
   return {
     name: profile.name,
     description: profile.description,
-    config: profile.config,
+    config: stripSharedSettingsFromConfig(profile.config),
   };
 };
 

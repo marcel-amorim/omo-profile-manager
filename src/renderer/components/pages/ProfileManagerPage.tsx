@@ -1,9 +1,9 @@
 import { useState, useEffect, useCallback } from 'react';
-import { Save, AlertCircle, ArrowLeft } from 'lucide-react';
+import { Save, AlertCircle, ArrowLeft, Settings, Users } from 'lucide-react';
 import { ProfileList } from '../organisms/ProfileList';
 import { AgentEditor } from '../organisms/AgentEditor';
 import { CategoryEditor } from '../organisms/CategoryEditor';
-import { ProfileGlobalSettingsEditor } from '../organisms/ProfileGlobalSettingsEditor';
+import { SharedSettingsEditor } from '../organisms/SharedSettingsEditor';
 import { ApplyModal } from '../organisms/ApplyModal';
 import { SetupWizard } from '../organisms/SetupWizard';
 import { ThemeToggle } from '../atoms/ThemeToggle';
@@ -16,15 +16,15 @@ import {
   Profile,
   OMOAgentConfig,
   OMOCategoryConfig,
-  SisyphusAgentSettings,
+  OMOSharedSettings,
   createDefaultOMOConfig,
 } from '../../../shared/types';
-import {
-  CategoryName,
-  DEFAULT_SISYPHUS_AGENT_SETTINGS,
-  OMO_SCHEMA_URL,
-} from '../../../shared/constants';
+import { CategoryName } from '../../../shared/constants';
 import { validateProfileSafe } from '../../../shared/schemas';
+import { createDefaultSharedSettings, mergeSharedSettingsIntoConfig, stripDefaultValuesFromConfig } from '../../../shared/config-scope';
+import type { ModelInfo, ModelsResult } from '../../../shared/ipc';
+
+type EditorTab = 'profiles' | 'shared';
 
 export const ProfileManagerPage = () => {
   const {
@@ -46,29 +46,32 @@ export const ProfileManagerPage = () => {
   const [showWizard, setShowWizard] = useState(false);
   const [isCheckingFirstLaunch, setIsCheckingFirstLaunch] = useState(true);
   const [availableModels, setAvailableModels] = useState<string[]>([]);
+  const [modelInfos, setModelInfos] = useState<Record<string, ModelInfo> >({});
   const [modelsError, setModelsError] = useState<string | null>(null);
+  const [, setIsLoadingModels] = useState(true);
   const [hasInitializedProfileSelection, setHasInitializedProfileSelection] = useState(false);
+  
+  const [activeTab, setActiveTab] = useState<EditorTab>('profiles');
+  const [sharedSettings, setSharedSettings] = useState<OMOSharedSettings>(createDefaultSharedSettings());
+  const [sharedSettingsDirty, setSharedSettingsDirty] = useState(false);
+  const [sharedSettingsLoading, setSharedSettingsLoading] = useState(false);
+
+  const { success: showSuccess, error: showError } = useToast();
 
   useEffect(() => {
     const initApp = async () => {
       try {
-        const [configResult, modelsResult] = await Promise.all([
+        const [configResult, sharedResult] = await Promise.all([
           window.electron.config.configExists(),
-          window.electron.models.listModels(),
+          window.electron.config.readSharedSettings(),
         ]);
 
         if (configResult.success && !configResult.data && profiles.length === 0) {
           setShowWizard(true);
         }
 
-        if (modelsResult.success && (modelsResult.data as unknown as { models: string[] }).models.length > 0) {
-          setAvailableModels((modelsResult.data as unknown as { models: string[] }).models);
-        } else {
-          const msg = modelsResult.success
-            ? `Models list is empty (opencode returned no models)`
-            : `Failed to load models: ${modelsResult.error?.message ?? 'Unknown error'}`;
-          setModelsError(msg);
-          showError(msg);
+        if (sharedResult.success && sharedResult.data) {
+          setSharedSettings(sharedResult.data);
         }
       } catch (err) {
         console.error('Failed to initialize app:', err);
@@ -81,6 +84,39 @@ export const ProfileManagerPage = () => {
       initApp();
     }
   }, [loading, profiles.length]);
+
+  useEffect(() => {
+    const loadModelsAsync = async () => {
+      try {
+        const modelsResult = await window.electron.models.listModels();
+        
+        if (modelsResult.success && modelsResult.data.models.length > 0) {
+          const data = modelsResult.data as ModelsResult;
+          setAvailableModels(data.models);
+          const infoMap: Record<string, ModelInfo> = {};
+          data.modelInfos.forEach(m => { infoMap[m.id] = m; });
+          setModelInfos(infoMap);
+        } else {
+          const msg = modelsResult.success
+            ? `Models list is empty (opencode returned no models)`
+            : `Failed to load models: ${modelsResult.error?.message ?? 'Unknown error'}`;
+          setModelsError(msg);
+          showError(msg);
+        }
+      } catch (err) {
+        const msg = `Failed to load models: ${err instanceof Error ? err.message : 'Unknown error'}`;
+        setModelsError(msg);
+        showError(msg);
+      } finally {
+        setIsLoadingModels(false);
+        console.debug('[ProfileManager] Models loading complete');
+      }
+    };
+
+    if (!isCheckingFirstLaunch) {
+      loadModelsAsync();
+    }
+  }, [isCheckingFirstLaunch, showError]);
 
   useEffect(() => {
     if (selectedProfileId) {
@@ -200,35 +236,36 @@ export const ProfileManagerPage = () => {
     []
   );
 
-  const handleSisyphusAgentSettingsChange = useCallback(
-    <K extends keyof SisyphusAgentSettings>(field: K, value: SisyphusAgentSettings[K]) => {
-      setLocalProfile((prev) => {
-        if (!prev) return prev;
-        const currentSettings = prev.config.sisyphus_agent ?? { ...DEFAULT_SISYPHUS_AGENT_SETTINGS };
+  const handleSharedSettingsChange = useCallback((newSettings: OMOSharedSettings) => {
+    setSharedSettings(newSettings);
+    setSharedSettingsDirty(true);
+  }, []);
 
-        return {
-          ...prev,
-          config: {
-            ...prev.config,
-            $schema: prev.config.$schema ?? OMO_SCHEMA_URL,
-            sisyphus_agent: {
-              ...currentSettings,
-              [field]: value,
-            },
-          },
-        };
-      });
-      setIsDirty(true);
-    },
-    []
-  );
+  const handleSaveSharedSettings = async () => {
+    setSharedSettingsLoading(true);
+    try {
+      const result = await window.electron.config.writeSharedSettings(sharedSettings);
+      if (result.success) {
+        setSharedSettingsDirty(false);
+        showSuccess('Shared settings saved successfully');
+      } else {
+        showError(`Failed to save shared settings: ${result.error.message}`);
+      }
+    } catch (err) {
+      const msg = err instanceof Error ? err.message : String(err);
+      showError(`Failed to save shared settings: ${msg}`);
+    } finally {
+      setSharedSettingsLoading(false);
+    }
+  };
 
-  const { success: showSuccess, error: showError } = useToast();
-
-  const handleSave = async () => {
+  const handleSaveProfile = async () => {
     if (!localProfile) return;
 
-    const validation = validateProfileSafe(localProfile);
+    const strippedConfig = stripDefaultValuesFromConfig(localProfile.config);
+    const profileToSave = { ...localProfile, config: strippedConfig };
+
+    const validation = validateProfileSafe(profileToSave);
     if (!validation.success) {
       const errorMsg = `Validation failed: ${validation.error.issues.map((issue) => issue.message).join(', ')}`;
       setSaveError(errorMsg);
@@ -236,7 +273,7 @@ export const ProfileManagerPage = () => {
       return;
     }
 
-    const success = await updateProfile(localProfile);
+    const success = await updateProfile(profileToSave);
     if (success) {
       setIsDirty(false);
       setSaveError(null);
@@ -257,6 +294,7 @@ export const ProfileManagerPage = () => {
     const success = await createProfile(newProfile);
     if (success) {
       setSelectedProfileId(newProfile.id);
+      setActiveTab('profiles');
     }
   };
 
@@ -265,6 +303,7 @@ export const ProfileManagerPage = () => {
     const success = await createProfile(newProfile);
     if (success) {
       setSelectedProfileId(newProfile.id);
+      setActiveTab('profiles');
     }
     return success;
   };
@@ -273,7 +312,18 @@ export const ProfileManagerPage = () => {
     if (!profileToApply) return;
 
     try {
-      const result = await window.electron.config.writeConfig(profileToApply.config);
+      if (sharedSettingsDirty) {
+        const sharedSettingsResult = await window.electron.config.writeSharedSettings(sharedSettings);
+        if (!sharedSettingsResult.success) {
+          throw new Error(sharedSettingsResult.error.message);
+        }
+
+        setSharedSettingsDirty(false);
+      }
+
+      const configToApply = mergeSharedSettingsIntoConfig(profileToApply.config, sharedSettings);
+      const strippedConfigToApply = stripDefaultValuesFromConfig(configToApply);
+      const result = await window.electron.config.writeConfig(strippedConfigToApply);
       if (!result.success) {
         throw new Error(result.error.message);
       }
@@ -311,7 +361,7 @@ export const ProfileManagerPage = () => {
     isDirty,
     onSelectProfile: setSelectedProfileId,
     onCreateProfile: handleCreateProfile,
-    onSaveProfile: handleSave,
+    onSaveProfile: activeTab === 'profiles' ? handleSaveProfile : handleSaveSharedSettings,
     setProfileToApply,
   });
 
@@ -323,30 +373,206 @@ export const ProfileManagerPage = () => {
     );
   }
 
+  const renderContent = () => {
+    if (activeTab === 'shared') {
+      return (
+        <>
+          <div className="p-6 border-b border-slate-200 dark:border-slate-800 flex flex-col sm:flex-row justify-between items-start sm:items-center gap-4 bg-white dark:bg-slate-950">
+            <div className="flex items-center gap-2 w-full sm:w-auto">
+              <button
+                type="button"
+                onClick={() => setSelectedProfileId(null)}
+                className="md:hidden p-2 -ml-2 text-slate-500 hover:text-slate-900 dark:text-slate-400 dark:hover:text-white rounded-md transition-colors flex-shrink-0"
+                title="Back to profiles"
+              >
+                <ArrowLeft size={20} />
+              </button>
+              <div className="flex-1 min-w-0">
+                <h1 className="text-2xl sm:text-3xl font-bold text-slate-900 dark:text-white">
+                  Shared Settings
+                </h1>
+                <p className="text-slate-500 dark:text-slate-400 text-sm mt-1">
+                  Global configuration applied across all profiles
+                </p>
+              </div>
+            </div>
+            <div className="flex items-center gap-4 w-full sm:w-auto justify-end">
+              <ThemeToggle />
+              <button
+                type="button"
+                onClick={handleSaveSharedSettings}
+                disabled={!sharedSettingsDirty || sharedSettingsLoading}
+                className={`flex items-center gap-2 px-5 py-2.5 rounded-lg font-medium transition-all shadow-sm ${
+                  sharedSettingsDirty && !sharedSettingsLoading
+                    ? 'bg-blue-600 hover:bg-blue-700 text-white shadow-blue-500/20'
+                    : 'bg-slate-100 dark:bg-slate-800 text-slate-400 dark:text-slate-500 cursor-not-allowed shadow-none'
+                }`}
+              >
+                <Save size={18} />
+                {sharedSettingsLoading ? 'Saving...' : 'Save Changes'}
+              </button>
+            </div>
+          </div>
+
+          <div className="flex-1 overflow-y-auto p-6 pb-16">
+            <SharedSettingsEditor
+              settings={sharedSettings}
+              onChange={handleSharedSettingsChange}
+            />
+          </div>
+        </>
+      );
+    }
+
+    if (localProfile) {
+      return (
+        <>
+          <div className="p-6 border-b border-slate-200 dark:border-slate-800 flex flex-col sm:flex-row justify-between items-start sm:items-center gap-4 bg-white dark:bg-slate-950">
+            <div className="flex items-center gap-2 w-full sm:w-auto">
+              <button
+                type="button"
+                onClick={() => setSelectedProfileId(null)}
+                className="md:hidden p-2 -ml-2 text-slate-500 hover:text-slate-900 dark:text-slate-400 dark:hover:text-white rounded-md transition-colors flex-shrink-0"
+                title="Back to profiles"
+              >
+                <ArrowLeft size={20} />
+              </button>
+              <div className="flex-1 min-w-0">
+                <input
+                  type="text"
+                  data-testid="profile-name-input"
+                  value={localProfile.name}
+                  onChange={(e) => {
+                    setLocalProfile({ ...localProfile, name: e.target.value });
+                    setIsDirty(true);
+                  }}
+                  className="text-2xl sm:text-3xl font-bold bg-transparent border-b-2 border-transparent hover:border-slate-300 dark:hover:border-slate-700 focus:border-blue-500 focus:outline-none px-1 py-0.5 rounded-t text-slate-900 dark:text-white transition-colors duration-200 w-full"
+                />
+                <input
+                  type="text"
+                  data-testid="profile-description-input"
+                  value={localProfile.description || ''}
+                  onChange={(e) => {
+                    setLocalProfile({ ...localProfile, description: e.target.value });
+                    setIsDirty(true);
+                  }}
+                  placeholder="Profile description..."
+                  className="block text-slate-500 dark:text-slate-400 text-sm bg-transparent border-b border-transparent hover:border-slate-300 dark:hover:border-slate-700 focus:border-blue-500 focus:outline-none px-1 py-0.5 rounded-t w-full mt-1 transition-colors duration-200"
+                />
+              </div>
+            </div>
+            <div className="flex items-center gap-4 w-full sm:w-auto justify-end">
+              <ThemeToggle />
+              {saveError && (
+                <span className="text-red-600 dark:text-red-400 text-sm max-w-xs truncate" title={saveError}>
+                  {saveError}
+                </span>
+              )}
+              <button
+                type="button"
+                data-testid="save-profile-btn"
+                onClick={handleSaveProfile}
+                disabled={!isDirty || loading}
+                className={`flex items-center gap-2 px-5 py-2.5 rounded-lg font-medium transition-all shadow-sm ${
+                  isDirty
+                    ? 'bg-blue-600 hover:bg-blue-700 text-white shadow-blue-500/20'
+                    : 'bg-slate-100 dark:bg-slate-800 text-slate-400 dark:text-slate-500 cursor-not-allowed shadow-none'
+                }`}
+              >
+                <Save size={18} />
+                Save Changes
+              </button>
+            </div>
+          </div>
+
+          <div className="flex-1 overflow-y-auto p-6 pb-16 space-y-8">
+            <AgentEditor
+              agents={localProfile.config.agents || {}}
+              onChange={handleAgentChange}
+              availableModels={availableModels}
+              modelInfos={modelInfos}
+            />
+            <CategoryEditor
+              categories={localProfile.config.categories || {}}
+              onChange={handleCategoryChange}
+              availableModels={availableModels}
+              modelInfos={modelInfos}
+            />
+          </div>
+        </>
+      );
+    }
+
+    return (
+      <div className="flex-1 flex flex-col items-center justify-center text-slate-400 dark:text-slate-500 transition-colors duration-200">
+        <div className="w-16 h-16 mb-4 rounded-full bg-slate-100 dark:bg-slate-800 flex items-center justify-center">
+          <AlertCircle size={32} className="text-slate-300 dark:text-slate-600" />
+        </div>
+        <p className="text-lg font-medium">Select a profile to edit</p>
+        <p className="text-sm mt-2">Or create a new one from the sidebar</p>
+      </div>
+    );
+  };
+
   return (
     <ProfileManagerTemplate
-      sidebarVisibleOnMobile={selectedProfileId !== null}
+      sidebarVisibleOnMobile={selectedProfileId !== null || activeTab === 'shared'}
       wizard={showWizard ? <SetupWizard onComplete={handleWizardComplete} /> : undefined}
       sidebar={
-        <ProfileList
-          profiles={profiles}
-          selectedProfileId={selectedProfileId}
-          activeProfileId={activeProfileId}
-          onSelectProfile={setSelectedProfileId}
-          onCreateProfile={handleCreateProfile}
-          onDuplicateProfile={duplicateProfile}
-          onDeleteProfile={deleteProfile}
-          onApplyProfile={(id) => {
-            const profile = profiles.find((p) => p.id === id);
-            if (profile) setProfileToApply(profile);
-          }}
-          onImportProfile={handleImportProfile}
-        />
+        <div className="flex flex-col h-full">
+          <div className="p-4 border-b border-slate-200 dark:border-slate-800 bg-white dark:bg-slate-950">
+            <div className="flex gap-2">
+              <button
+                type="button"
+                onClick={() => setActiveTab('profiles')}
+                className={`flex-1 flex items-center justify-center gap-2 px-3 py-2 rounded-lg text-sm font-medium transition-colors ${
+                  activeTab === 'profiles'
+                    ? 'bg-blue-100 text-blue-700 dark:bg-blue-900/30 dark:text-blue-400'
+                    : 'bg-slate-100 text-slate-600 hover:bg-slate-200 dark:bg-slate-800 dark:text-slate-400 dark:hover:bg-slate-700'
+                }`}
+              >
+                <Users size={16} />
+                Profiles
+              </button>
+              <button
+                type="button"
+                onClick={() => setActiveTab('shared')}
+                className={`flex-1 flex items-center justify-center gap-2 px-3 py-2 rounded-lg text-sm font-medium transition-colors ${
+                  activeTab === 'shared'
+                    ? 'bg-blue-100 text-blue-700 dark:bg-blue-900/30 dark:text-blue-400'
+                    : 'bg-slate-100 text-slate-600 hover:bg-slate-200 dark:bg-slate-800 dark:text-slate-400 dark:hover:bg-slate-700'
+                }`}
+              >
+                <Settings size={16} />
+                Shared
+              </button>
+            </div>
+          </div>
+          <div className="flex-1 overflow-hidden">
+            <ProfileList
+              profiles={profiles}
+              selectedProfileId={selectedProfileId}
+              activeProfileId={activeProfileId}
+              onSelectProfile={(id) => {
+                setSelectedProfileId(id);
+                setActiveTab('profiles');
+              }}
+              onCreateProfile={handleCreateProfile}
+              onDuplicateProfile={duplicateProfile}
+              onDeleteProfile={deleteProfile}
+              onApplyProfile={(id) => {
+                const profile = profiles.find((p) => p.id === id);
+                if (profile) setProfileToApply(profile);
+              }}
+              onImportProfile={handleImportProfile}
+            />
+          </div>
+        </div>
       }
       content={
         <div
           className={`flex-1 flex-col overflow-hidden relative bg-white dark:bg-slate-950 transition-colors duration-200 ${
-            selectedProfileId ? 'flex' : 'hidden md:flex'
+            selectedProfileId || activeTab === 'shared' ? 'flex' : 'hidden md:flex'
           }`}
         >
           {loading && (
@@ -369,94 +595,7 @@ export const ProfileManagerPage = () => {
             </div>
           )}
 
-          {localProfile ? (
-            <>
-              <div className="p-6 border-b border-slate-200 dark:border-slate-800 flex flex-col sm:flex-row justify-between items-start sm:items-center gap-4 bg-white dark:bg-slate-950 transition-colors duration-200">
-                <div className="flex items-center gap-2 w-full sm:w-auto">
-                  <button
-                    type="button"
-                    onClick={() => setSelectedProfileId(null)}
-                    className="md:hidden p-2 -ml-2 text-slate-500 hover:text-slate-900 dark:text-slate-400 dark:hover:text-white rounded-md transition-colors flex-shrink-0"
-                    title="Back to profiles"
-                  >
-                    <ArrowLeft size={20} />
-                  </button>
-                  <div className="flex-1 min-w-0">
-                    <input
-                      type="text"
-                      data-testid="profile-name-input"
-                      value={localProfile.name}
-                      onChange={(e) => {
-                        setLocalProfile({ ...localProfile, name: e.target.value });
-                        setIsDirty(true);
-                      }}
-                      className="text-2xl sm:text-3xl font-bold bg-transparent border-b-2 border-transparent hover:border-slate-300 dark:hover:border-slate-700 focus:border-blue-500 focus:outline-none px-1 py-0.5 rounded-t text-slate-900 dark:text-white transition-colors duration-200 w-full"
-                    />
-                    <input
-                      type="text"
-                      data-testid="profile-description-input"
-                      value={localProfile.description || ''}
-                      onChange={(e) => {
-                        setLocalProfile({ ...localProfile, description: e.target.value });
-                        setIsDirty(true);
-                      }}
-                      placeholder="Profile description..."
-                      className="block text-slate-500 dark:text-slate-400 text-sm bg-transparent border-b border-transparent hover:border-slate-300 dark:hover:border-slate-700 focus:border-blue-500 focus:outline-none px-1 py-0.5 rounded-t w-full mt-1 transition-colors duration-200"
-                    />
-                  </div>
-                </div>
-                <div className="flex items-center gap-4 w-full sm:w-auto justify-end">
-                  <ThemeToggle />
-                  {saveError && (
-                    <span className="text-red-600 dark:text-red-400 text-sm max-w-xs truncate" title={saveError}>
-                      {saveError}
-                    </span>
-                  )}
-                  <button
-                    type="button"
-                    data-testid="save-profile-btn"
-                    onClick={handleSave}
-                    disabled={!isDirty || loading}
-                    className={`flex items-center gap-2 px-5 py-2.5 rounded-lg font-medium transition-all shadow-sm ${
-                      isDirty
-                        ? 'bg-blue-600 hover:bg-blue-700 text-white shadow-blue-500/20'
-                        : 'bg-slate-100 dark:bg-slate-800 text-slate-400 dark:text-slate-500 cursor-not-allowed shadow-none'
-                    }`}
-                  >
-                    <Save size={18} />
-                    Save Changes
-                  </button>
-                </div>
-              </div>
-
-              <div className="flex-1 overflow-y-auto p-6 pb-16 space-y-8">
-                <ProfileGlobalSettingsEditor
-                  settings={
-                    localProfile.config.sisyphus_agent ?? { ...DEFAULT_SISYPHUS_AGENT_SETTINGS }
-                  }
-                  onChange={handleSisyphusAgentSettingsChange}
-                />
-                <AgentEditor
-                  agents={localProfile.config.agents || {}}
-                  onChange={handleAgentChange}
-                  availableModels={availableModels}
-                />
-                <CategoryEditor
-                  categories={localProfile.config.categories || {}}
-                  onChange={handleCategoryChange}
-                  availableModels={availableModels}
-                />
-              </div>
-            </>
-          ) : (
-            <div className="flex-1 flex flex-col items-center justify-center text-slate-400 dark:text-slate-500 transition-colors duration-200">
-              <div className="w-16 h-16 mb-4 rounded-full bg-slate-100 dark:bg-slate-800 flex items-center justify-center">
-                <AlertCircle size={32} className="text-slate-300 dark:text-slate-600" />
-              </div>
-              <p className="text-lg font-medium">Select a profile to edit</p>
-              <p className="text-sm mt-2">Or create a new one from the sidebar</p>
-            </div>
-          )}
+          {renderContent()}
         </div>
       }
       modal={

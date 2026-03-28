@@ -305,8 +305,21 @@ describe('Schemas', () => {
         $schema: 'https://example.com/schema.json',
         new_task_system_enabled: true,
         sisyphus_agent: {
+          disabled: false,
           default_builder_enabled: true,
+          planner_enabled: true,
           replace_plan: false,
+        },
+        sisyphus: {
+          tasks: {
+            enabled: true,
+            storage_path: '.sisyphus/tasks',
+            claude_code_compat: false,
+          },
+        },
+        background_task: {
+          defaultConcurrency: 4,
+          staleTimeoutMs: 180000,
         },
         default_run_agent: 'sisyphus',
         disabled_mcps: ['mcp1'],
@@ -317,6 +330,28 @@ describe('Schemas', () => {
         disabled_tools: ['tool1'],
         hashline_edit: true,
         model_fallback: false,
+        browser_automation_engine: {
+          provider: 'playwright',
+        },
+        notification: {
+          force_enable: true,
+        },
+        git_master: {
+          commit_footer: true,
+          include_co_authored_by: true,
+        },
+        runtime_fallback: {
+          enabled: true,
+          max_fallback_attempts: 3,
+          cooldown_seconds: 60,
+          timeout_seconds: 30,
+          notify_on_fallback: true,
+        },
+        experimental: {
+          auto_resume: true,
+          disable_omo_env: false,
+          task_system: true,
+        },
       };
       expect(OMOGlobalSettingsSchema.parse(settings)).toEqual(settings);
     });

@@ -9,6 +9,7 @@ const __dirname = path.dirname(__filename);
 
 export async function launchApp(): Promise<{ app: ElectronApplication; window: Page; tempDir: string }> {
   const tempDir = fs.mkdtempSync(path.join(os.tmpdir(), 'omo-profile-manager-test-'));
+  fs.mkdirSync(path.join(tempDir, '.config', 'opencode'), { recursive: true });
   
   const app = await electron.launch({
     args: [
@@ -17,8 +18,11 @@ export async function launchApp(): Promise<{ app: ElectronApplication; window: P
     ],
     env: {
       ...process.env,
+      HOME: tempDir,
       NODE_ENV: 'test',
-      OMO_TEST_MODE: 'true'
+      OMO_TEST_MODE: 'true',
+      USERPROFILE: tempDir,
+      XDG_CONFIG_HOME: path.join(tempDir, '.config')
     }
   });
 
@@ -55,5 +59,12 @@ export async function skipWizard(window: Page) {
       await window.locator('button:has-text("Cancel")').click({ force: true });
     }
   } catch (e) {
+    // Modal may not be visible - that's fine
   }
+}
+
+export async function waitForSuccessToastCycle(window: Page, message: string) {
+  const toast = window.getByRole('alert').filter({ hasText: message });
+  await toast.waitFor({ state: 'visible', timeout: 6000 });
+  await toast.waitFor({ state: 'hidden', timeout: 6000 });
 }

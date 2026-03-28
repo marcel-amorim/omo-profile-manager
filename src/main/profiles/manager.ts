@@ -3,6 +3,7 @@ import { promises as fs } from 'fs';
 import { join } from 'path';
 import { randomUUID } from 'crypto';
 import type { Profile } from '../../shared/types';
+import { stripSharedSettingsFromConfig } from '../../shared/config-scope';
 import { validateProfileSafe, ProfileSchema } from '../../shared/schemas';
 
 const PROFILES_DIR = 'profiles';
@@ -40,6 +41,13 @@ function sanitizeProfileName(name: string): string {
   return name.trim();
 }
 
+function sanitizeStoredProfile(profile: Profile): Profile {
+  return {
+    ...profile,
+    config: stripSharedSettingsFromConfig(profile.config),
+  };
+}
+
 export async function listProfiles(): Promise<Profile[]> {
   await ensureProfilesDir();
   const profilesDir = getProfilesDir();
@@ -56,9 +64,10 @@ export async function listProfiles(): Promise<Profile[]> {
         const data = JSON.parse(content);
 
         if (validateProfileData(data)) {
-          profiles.push(data);
+          profiles.push(sanitizeStoredProfile(data));
         }
       } catch {
+        continue;
       }
     }
 
@@ -76,7 +85,7 @@ export async function getProfile(id: string): Promise<Profile | null> {
     const data = JSON.parse(content);
 
     if (validateProfileData(data)) {
-      return data;
+      return sanitizeStoredProfile(data);
     }
     return null;
   } catch {
@@ -108,6 +117,7 @@ export async function saveProfile(profile: Profile): Promise<void> {
   const profileToSave: Profile = {
     ...profile,
     name: sanitizedName,
+    config: stripSharedSettingsFromConfig(profile.config),
     updatedAt: Date.now(),
     createdAt: profile.createdAt || Date.now(),
   };
@@ -133,6 +143,7 @@ export async function deleteProfile(id: string): Promise<void> {
       await setActiveProfileId('');
     }
   } catch {
+    return;
   }
 }
 

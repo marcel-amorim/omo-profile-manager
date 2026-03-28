@@ -109,7 +109,7 @@ export const ModelSelect: React.FC<ModelSelectProps> = ({
   };
 
   return (
-    <div className="relative w-full" ref={wrapperRef}>
+    <div className={`relative w-full ${isOpen ? 'z-[100]' : ''}`} ref={wrapperRef}>
       <button
         type="button"
         id={id}
@@ -127,7 +127,7 @@ export const ModelSelect: React.FC<ModelSelectProps> = ({
       </button>
 
       {isOpen && (
-        <div className="absolute z-50 w-full mt-1 bg-white dark:bg-slate-900 border border-slate-200 dark:border-slate-800 rounded-lg shadow-lg max-h-80 overflow-hidden flex flex-col">
+        <div className="absolute z-[110] w-full mt-1 bg-white dark:bg-slate-900 border border-slate-200 dark:border-slate-800 rounded-lg shadow-lg max-h-80 overflow-hidden flex flex-col">
           <div className="p-2 border-b border-slate-100 dark:border-slate-800">
             <input
               ref={inputRef}

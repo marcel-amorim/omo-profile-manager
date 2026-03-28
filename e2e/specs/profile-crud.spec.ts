@@ -1,5 +1,5 @@
 import { test, expect, ElectronApplication, Page } from '@playwright/test';
-import { launchApp, closeApp, skipWizard } from '../helpers/app-helpers';
+import { launchApp, closeApp, skipWizard, waitForSuccessToastCycle } from '../helpers/app-helpers';
 import { testProfile } from '../fixtures/test-data';
 
 test.describe('Profile CRUD Operations', () => {
@@ -34,6 +34,7 @@ test.describe('Profile CRUD Operations', () => {
     await window.locator('[data-testid="create-profile-btn"]').click();
     await window.locator('[data-testid="profile-name-input"]').fill('To Edit');
     await window.locator('[data-testid="save-profile-btn"]').click();
+    await waitForSuccessToastCycle(window, 'Profile updated successfully');
     
     await window.locator('[data-testid="profile-item-To Edit"]').click();
     
@@ -48,9 +49,10 @@ test.describe('Profile CRUD Operations', () => {
     await window.locator('[data-testid="create-profile-btn"]').click();
     await window.locator('[data-testid="profile-name-input"]').fill('To Duplicate');
     await window.locator('[data-testid="save-profile-btn"]').click();
+    await waitForSuccessToastCycle(window, 'Profile updated successfully');
     
-    await window.locator('[data-testid="profile-item-To Duplicate"]').click();
-    await window.locator('[data-testid="profile-item-To Duplicate"] [data-testid="duplicate-profile-btn"]').click();
+    const profileCard = window.locator('[data-testid="profile-item-To Duplicate"]').locator('..');
+    await profileCard.getByTestId('duplicate-profile-btn').click();
     
     await expect(window.locator('[data-testid="profile-item-To Duplicate (Copy)"]')).toBeVisible();
   });
@@ -59,9 +61,10 @@ test.describe('Profile CRUD Operations', () => {
     await window.locator('[data-testid="create-profile-btn"]').click();
     await window.locator('[data-testid="profile-name-input"]').fill('To Delete');
     await window.locator('[data-testid="save-profile-btn"]').click();
+    await waitForSuccessToastCycle(window, 'Profile updated successfully');
     
-    await window.locator('[data-testid="profile-item-To Delete"]').click();
-    await window.locator('[data-testid="profile-item-To Delete"] [data-testid="delete-profile-btn"]').click();
+    const profileCard = window.locator('[data-testid="profile-item-To Delete"]').locator('..');
+    await profileCard.getByTestId('delete-profile-btn').click();
     
     await expect(window.locator('[data-testid="profile-item-To Delete"]')).not.toBeVisible();
   });

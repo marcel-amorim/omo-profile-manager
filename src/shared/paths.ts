@@ -1,13 +1,16 @@
+import { createRequire } from 'module';
 import { join } from 'path';
 import { existsSync, mkdirSync, accessSync, constants } from 'fs';
+import { homedir } from 'os';
+
+const requireModule = createRequire(import.meta.url);
 
 let app: { getPath: (name: string) => string } | null = null;
 
 try {
   if (typeof require !== 'undefined') {
-    // eslint-disable-next-line @typescript-eslint/no-var-requires
-    const electron = require('electron');
-    app = electron.app;
+    const electron = requireModule('electron') as { app?: { getPath: (name: string) => string } };
+    app = electron.app ?? null;
   }
 } catch {
   app = null;
@@ -17,11 +20,7 @@ export function getProfilesDir(): string {
   if (app) {
     return join(app.getPath('userData'), 'profiles');
   }
-  if (typeof require !== 'undefined') {
-    const { homedir } = require('os');
-    return join(homedir(), '.config', 'opencode', 'profiles');
-  }
-  return '';
+  return join(homedir(), '.config', 'opencode', 'profiles');
 }
 
 export function ensureDir(dirPath: string): boolean {
@@ -82,9 +81,5 @@ export function validatePath(filePath: string): {
 }
 
 export function resolveConfigPath(...segments: string[]): string {
-  if (typeof require !== 'undefined') {
-    const { homedir } = require('os');
-    return join(homedir(), '.config', 'opencode', ...segments);
-  }
-  return '';
+  return join(homedir(), '.config', 'opencode', ...segments);
 }

@@ -1,4 +1,4 @@
-import type { Profile as OMOProfile } from './types';
+import type { OMOSharedSettings, Profile as OMOProfile } from './types';
 
 export interface Config {
   agents: Record<string, unknown>;
@@ -6,6 +6,17 @@ export interface Config {
 }
 
 export type Profile = OMOProfile;
+
+export interface ModelVariantInfo {
+  [variantName: string]: Record<string, unknown>;
+}
+
+export interface ModelInfo {
+  id: string;
+  providerID: string;
+  name: string;
+  variants: ModelVariantInfo;
+}
 
 export interface Backup {
   timestamp: number;
@@ -29,9 +40,10 @@ export enum IpcChannels {
   WRITE_CONFIG = 'config:write',
   GET_CONFIG_PATH = 'config:get-path',
   CONFIG_EXISTS = 'config:exists',
+  READ_SHARED_SETTINGS = 'config:read-shared-settings',
+  WRITE_SHARED_SETTINGS = 'config:write-shared-settings',
   GET_THEME = 'theme:get',
   SET_THEME = 'theme:set',
-
   LIST_PROFILES = 'profiles:list',
   GET_PROFILE = 'profiles:get',
   SAVE_PROFILE = 'profiles:save',
@@ -39,12 +51,9 @@ export enum IpcChannels {
   DUPLICATE_PROFILE = 'profiles:duplicate',
   GET_ACTIVE_PROFILE = 'profiles:get-active',
   SET_ACTIVE_PROFILE = 'profiles:set-active',
-
   LIST_BACKUPS = 'backups:list',
   RESTORE_BACKUP = 'backups:restore',
-
   LIST_MODELS = 'models:list',
-
   SHORTCUT_TRIGGERED = 'shortcut:triggered',
 }
 
@@ -53,6 +62,8 @@ export interface ConfigApi {
   writeConfig(config: Config): Promise<IpcResult<void>>;
   getConfigPath(): Promise<IpcResult<string>>;
   configExists(): Promise<IpcResult<boolean>>;
+  readSharedSettings(): Promise<IpcResult<OMOSharedSettings>>;
+  writeSharedSettings(settings: OMOSharedSettings): Promise<IpcResult<void>>;
 }
 
 export interface ProfileApi {
@@ -75,8 +86,13 @@ export interface ThemeApi {
   setTheme(theme: 'light' | 'dark'): Promise<IpcResult<void>>;
 }
 
+export interface ModelsResult {
+  models: string[];
+  modelInfos: ModelInfo[];
+}
+
 export interface ModelsApi {
-  listModels(): Promise<IpcResult<string[]>>;
+  listModels(): Promise<IpcResult<ModelsResult>>;
 }
 
 export interface ShortcutAction {

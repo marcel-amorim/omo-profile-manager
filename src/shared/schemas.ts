@@ -93,15 +93,72 @@ export const OMOCategoryConfigSchema = OMOAgentConfigSchema;
 export type OMOCategoryConfig = z.infer<typeof OMOCategoryConfigSchema>;
 
 export const SisyphusAgentSettingsSchema = z.object({
+  disabled: z.boolean().optional(),
   default_builder_enabled: z.boolean(),
+  planner_enabled: z.boolean().optional(),
   replace_plan: z.boolean(),
 });
 export type SisyphusAgentSettings = z.infer<typeof SisyphusAgentSettingsSchema>;
+
+export const BackgroundTaskSettingsSchema = z.object({
+  defaultConcurrency: z.number().int().positive().optional(),
+  staleTimeoutMs: z.number().int().min(60000).optional(),
+});
+export type BackgroundTaskSettings = z.infer<typeof BackgroundTaskSettingsSchema>;
+
+export const SisyphusTaskSettingsSchema = z.object({
+  enabled: z.boolean().optional(),
+  storage_path: z.string().optional(),
+  claude_code_compat: z.boolean().optional(),
+});
+export type SisyphusTaskSettings = z.infer<typeof SisyphusTaskSettingsSchema>;
+
+export const SisyphusSettingsSchema = z.object({
+  tasks: SisyphusTaskSettingsSchema.optional(),
+});
+export type SisyphusSettings = z.infer<typeof SisyphusSettingsSchema>;
+
+export const BrowserAutomationProviderSchema = z.enum(['playwright', 'agent-browser']);
+export type BrowserAutomationProvider = z.infer<typeof BrowserAutomationProviderSchema>;
+
+export const BrowserAutomationEngineSettingsSchema = z.object({
+  provider: BrowserAutomationProviderSchema.optional(),
+});
+export type BrowserAutomationEngineSettings = z.infer<typeof BrowserAutomationEngineSettingsSchema>;
+
+export const NotificationSettingsSchema = z.object({
+  force_enable: z.boolean().optional(),
+});
+export type NotificationSettings = z.infer<typeof NotificationSettingsSchema>;
+
+export const GitMasterSettingsSchema = z.object({
+  commit_footer: z.boolean().optional(),
+  include_co_authored_by: z.boolean().optional(),
+});
+export type GitMasterSettings = z.infer<typeof GitMasterSettingsSchema>;
+
+export const RuntimeFallbackSettingsSchema = z.object({
+  enabled: z.boolean().optional(),
+  max_fallback_attempts: z.number().int().min(1).max(20).optional(),
+  cooldown_seconds: z.number().int().min(0).optional(),
+  timeout_seconds: z.number().int().min(0).optional(),
+  notify_on_fallback: z.boolean().optional(),
+});
+export type RuntimeFallbackSettings = z.infer<typeof RuntimeFallbackSettingsSchema>;
+
+export const ExperimentalSettingsSchema = z.object({
+  auto_resume: z.boolean().optional(),
+  disable_omo_env: z.boolean().optional(),
+  task_system: z.boolean().optional(),
+});
+export type ExperimentalSettings = z.infer<typeof ExperimentalSettingsSchema>;
 
 export const OMOGlobalSettingsSchema = z.object({
   $schema: z.string().optional(),
   new_task_system_enabled: z.boolean().optional(),
   sisyphus_agent: SisyphusAgentSettingsSchema.optional(),
+  sisyphus: SisyphusSettingsSchema.optional(),
+  background_task: BackgroundTaskSettingsSchema.optional(),
   default_run_agent: z.string().optional(),
   disabled_mcps: z.array(z.string().min(1)).optional(),
   disabled_agents: z.array(z.string()).optional(),
@@ -111,6 +168,11 @@ export const OMOGlobalSettingsSchema = z.object({
   disabled_tools: z.array(z.string()).optional(),
   hashline_edit: z.boolean().optional(),
   model_fallback: z.boolean().optional(),
+  browser_automation_engine: BrowserAutomationEngineSettingsSchema.optional(),
+  notification: NotificationSettingsSchema.optional(),
+  git_master: GitMasterSettingsSchema.optional(),
+  runtime_fallback: RuntimeFallbackSettingsSchema.optional(),
+  experimental: ExperimentalSettingsSchema.optional(),
 });
 export type OMOGlobalSettings = z.infer<typeof OMOGlobalSettingsSchema>;
 

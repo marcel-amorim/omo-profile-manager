@@ -23,6 +23,8 @@ contextBridge.exposeInMainWorld('electron', {
     writeConfig: (config: unknown) => invoke(IpcChannels.WRITE_CONFIG, config),
     getConfigPath: () => invoke(IpcChannels.GET_CONFIG_PATH),
     configExists: () => invoke(IpcChannels.CONFIG_EXISTS),
+    readSharedSettings: () => invoke(IpcChannels.READ_SHARED_SETTINGS),
+    writeSharedSettings: (settings: unknown) => invoke(IpcChannels.WRITE_SHARED_SETTINGS, settings),
   },
   profiles: {
     listProfiles: () => invoke(IpcChannels.LIST_PROFILES),
@@ -42,7 +44,7 @@ contextBridge.exposeInMainWorld('electron', {
     setTheme: (theme: 'light' | 'dark') => invoke(IpcChannels.SET_THEME, theme),
   },
   models: {
-    listModels: () => invoke<string[]>(IpcChannels.LIST_MODELS),
+    listModels: () => invoke(IpcChannels.LIST_MODELS),
   },
   shortcuts: {
     onShortcut: (callback: (action: ShortcutAction) => void) => {

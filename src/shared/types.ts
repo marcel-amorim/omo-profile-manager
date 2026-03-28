@@ -166,6 +166,50 @@ export interface OMOAgentConfig extends OMOBaseConfig {
  */
 export type OMOCategoryConfig = OMOAgentConfig;
 
+export interface BackgroundTaskSettings {
+  defaultConcurrency?: number;
+  staleTimeoutMs?: number;
+}
+
+export interface SisyphusTaskSettings {
+  enabled?: boolean;
+  storage_path?: string;
+  claude_code_compat?: boolean;
+}
+
+export interface SisyphusSettings {
+  tasks?: SisyphusTaskSettings;
+}
+
+export type BrowserAutomationProvider = 'playwright' | 'agent-browser';
+
+export interface BrowserAutomationEngineSettings {
+  provider?: BrowserAutomationProvider;
+}
+
+export interface NotificationSettings {
+  force_enable?: boolean;
+}
+
+export interface GitMasterSettings {
+  commit_footer?: boolean;
+  include_co_authored_by?: boolean;
+}
+
+export interface RuntimeFallbackSettings {
+  enabled?: boolean;
+  max_fallback_attempts?: number;
+  cooldown_seconds?: number;
+  timeout_seconds?: number;
+  notify_on_fallback?: boolean;
+}
+
+export interface ExperimentalSettings {
+  auto_resume?: boolean;
+  disable_omo_env?: boolean;
+  task_system?: boolean;
+}
+
 /**
  * Global settings for OMO configuration
  */
@@ -177,6 +221,10 @@ export interface OMOGlobalSettings {
   new_task_system_enabled?: boolean;
 
   sisyphus_agent?: SisyphusAgentSettings;
+
+  sisyphus?: SisyphusSettings;
+
+  background_task?: BackgroundTaskSettings;
   
   /** Default agent to run */
   default_run_agent?: string;
@@ -204,12 +252,26 @@ export interface OMOGlobalSettings {
   
   /** Enable model fallback */
   model_fallback?: boolean;
+
+  browser_automation_engine?: BrowserAutomationEngineSettings;
+
+  notification?: NotificationSettings;
+
+  git_master?: GitMasterSettings;
+
+  runtime_fallback?: RuntimeFallbackSettings;
+
+  experimental?: ExperimentalSettings;
 }
 
 export interface SisyphusAgentSettings {
+  disabled?: boolean;
   default_builder_enabled: boolean;
+  planner_enabled?: boolean;
   replace_plan: boolean;
 }
+
+export type OMOSharedSettings = OMOGlobalSettings;
 
 /**
  * Complete OMO configuration structure

@@ -1,21 +1,20 @@
 import { test, expect, ElectronApplication, Page } from '@playwright/test';
-import { launchApp, closeApp, skipWizard } from '../helpers/app-helpers';
+import { launchApp, closeApp, skipWizard, waitForSuccessToastCycle } from '../helpers/app-helpers';
 import { testProfile } from '../fixtures/test-data';
 import path from 'path';
 import fs from 'fs';
-import os from 'os';
 
 test.describe('Import and Export', () => {
   let app: ElectronApplication;
-  let window: Page;
+  let page: Page;
   let tempDir: string;
 
   test.beforeEach(async () => {
     const launched = await launchApp();
     app = launched.app;
-    window = launched.window;
+    page = launched.window;
     tempDir = launched.tempDir;
-    await skipWizard(window);
+    await skipWizard(page);
   });
 
   test.afterEach(async () => {
@@ -23,29 +22,41 @@ test.describe('Import and Export', () => {
   });
 
   test('should export a profile', async () => {
-    await window.locator('[data-testid="create-profile-btn"]').click();
-    await window.locator('[data-testid="profile-name-input"]').fill('Export Test');
-    await window.locator('[data-testid="save-profile-btn"]').click();
-    
-    await window.evaluate(() => {
-      (window as any).__downloadedUrl = null;
-      (window as any).__downloadedName = null;
-      const originalClick = window.HTMLElement.prototype.click;
-      window.HTMLElement.prototype.click = function() {
+    await page.locator('[data-testid="create-profile-btn"]').click();
+    await page.locator('[data-testid="profile-name-input"]').fill('Export Test');
+    await page.locator('[data-testid="save-profile-btn"]').click();
+    await waitForSuccessToastCycle(page, 'Profile updated successfully');
+
+    await page.evaluate(() => {
+      const pageWindow = window as unknown as Window & {
+        __downloadedUrl: string | null;
+        __downloadedName: string | null;
+      };
+
+      pageWindow.__downloadedUrl = null;
+      pageWindow.__downloadedName = null;
+
+      const originalClick = HTMLElement.prototype.click;
+
+      HTMLElement.prototype.click = function (this: HTMLElement) {
         if (this instanceof HTMLAnchorElement && this.download) {
-          (window as any).__downloadedUrl = this.href;
-          (window as any).__downloadedName = this.download;
+          pageWindow.__downloadedUrl = this.href;
+          pageWindow.__downloadedName = this.download;
         } else {
           originalClick.call(this);
         }
       };
     });
-    
-    await window.locator('[data-testid="profile-item-Export Test"]').hover();
-    await window.locator('[data-testid="profile-item-Export Test"]').locator('button[title="Export Profile"]').click();
-    
+
+    const profileCard = page.locator('[data-testid="profile-item-Export Test"]').locator('..');
+    await profileCard.getByTitle('Export Profile').click();
+
     await expect(async () => {
-      const downloadedName = await window.evaluate(() => (window as any).__downloadedName);
+      const downloadedName = await page.evaluate(() => {
+        const pageWindow = window as unknown as Window & { __downloadedName: string | null };
+        return pageWindow.__downloadedName;
+      });
+
       expect(downloadedName).toBe('export-test-omo-profile.json');
     }).toPass();
   });
@@ -55,14 +66,14 @@ test.describe('Import and Export', () => {
     console.log('testProfile:', JSON.stringify(testProfile, null, 2));
     fs.writeFileSync(importPath, JSON.stringify(testProfile));
     
-    await window.locator('input[type="file"]').setInputFiles(importPath);
-    
-    const errorToast = window.locator('.bg-red-600');
+    await page.locator('input[type="file"]').setInputFiles(importPath);
+
+    const errorToast = page.locator('.bg-red-600');
     if (await errorToast.isVisible({ timeout: 2000 }).catch(() => false)) {
       const text = await errorToast.textContent();
       console.error('Import failed with toast:', text);
     }
     
-    await expect(window.locator(`[data-testid="profile-item-${testProfile.name}"]`)).toBeVisible();
+    await expect(page.locator(`[data-testid="profile-item-${testProfile.name}"]`)).toBeVisible();
   });
 });

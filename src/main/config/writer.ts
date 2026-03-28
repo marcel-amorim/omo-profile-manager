@@ -7,69 +7,22 @@ import { DEFAULT_SISYPHUS_AGENT_SETTINGS, OMO_SCHEMA_URL } from '../../shared/co
 import { OMO_CONFIG_PATH, BACKUP_DIR } from './paths';
 
 export async function writeOMOConfig(config: OMOConfig): Promise<void> {
-  const {
-    agents,
-    categories,
-    $schema: _schema,
-    sisyphus_agent,
-    new_task_system_enabled,
-    default_run_agent,
-    disabled_mcps,
-    disabled_agents,
-    disabled_skills,
-    disabled_hooks,
-    disabled_commands,
-    disabled_tools,
-    hashline_edit,
-    model_fallback,
-    ...rest
-  } = config as OMOConfig & Record<string, unknown>;
-
-  const configToWrite = {
-    ...(rest as Record<string, unknown>),
+  const configToWrite = validateOMOConfig({
+    ...config,
     $schema: OMO_SCHEMA_URL,
     sisyphus_agent: {
       default_builder_enabled:
-        sisyphus_agent?.default_builder_enabled ??
+        config.sisyphus_agent?.default_builder_enabled ??
         DEFAULT_SISYPHUS_AGENT_SETTINGS.default_builder_enabled,
+      disabled:
+        config.sisyphus_agent?.disabled ?? DEFAULT_SISYPHUS_AGENT_SETTINGS.disabled,
+      planner_enabled:
+        config.sisyphus_agent?.planner_enabled ??
+        DEFAULT_SISYPHUS_AGENT_SETTINGS.planner_enabled,
       replace_plan:
-        sisyphus_agent?.replace_plan ?? DEFAULT_SISYPHUS_AGENT_SETTINGS.replace_plan,
+        config.sisyphus_agent?.replace_plan ?? DEFAULT_SISYPHUS_AGENT_SETTINGS.replace_plan,
     },
-    ...(new_task_system_enabled !== undefined && {
-      new_task_system_enabled,
-    }),
-    ...(default_run_agent !== undefined && {
-      default_run_agent,
-    }),
-    ...(disabled_mcps !== undefined && {
-      disabled_mcps,
-    }),
-    ...(disabled_agents !== undefined && {
-      disabled_agents,
-    }),
-    ...(disabled_skills !== undefined && {
-      disabled_skills,
-    }),
-    ...(disabled_hooks !== undefined && {
-      disabled_hooks,
-    }),
-    ...(disabled_commands !== undefined && {
-      disabled_commands,
-    }),
-    ...(disabled_tools !== undefined && {
-      disabled_tools,
-    }),
-    ...(hashline_edit !== undefined && {
-      hashline_edit,
-    }),
-    ...(model_fallback !== undefined && {
-      model_fallback,
-    }),
-    agents,
-    categories,
-  } as OMOConfig;
-
-  validateOMOConfig(configToWrite);
+  });
 
   const opencodeDir = dirname(OMO_CONFIG_PATH);
   const opencodeDirExists = await fileExists(opencodeDir);
